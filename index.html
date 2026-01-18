@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbit Routine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime?deps=react@18.2.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.263.1?deps=react@18.2.0",
+    "recharts": "https://esm.sh/recharts@2.12.0?deps=react@18.2.0,react-dom@18.2.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Outfit', 'sans-serif'],
+              mono: ['Space Grotesk', 'monospace'],
+            },
+            colors: {
+              orbit: {
+                bg: '#030014',
+                lightBg: '#f8fafc',
+                glass: 'rgba(255, 255, 255, 0.05)',
+                glassBorder: 'rgba(255, 255, 255, 0.1)',
+                neonPurple: '#d946ef',
+                neonBlue: '#00f0ff',
+                neonGreen: '#39ff14',
+              }
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'spin-slow': 'spin 12s linear infinite',
+              'spin-fast': 'spin 3s linear infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'cyber-glitch': 'glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both',
+              'impulse': 'impulse 0.5s cubic-bezier(0.4, 0, 0.2, 1) both',
+              'chromatic-wipe': 'chromatic 0.6s ease-in-out both',
+              'shimmer': 'shimmer 2.5s linear infinite',
+              'zenith-flare': 'zenithFlare 1.5s cubic-bezier(0.19, 1, 0.22, 1) both',
+              'ascension-float': 'ascensionFloat 4s ease-in-out infinite',
+              'screen-flash': 'screenFlash 0.5s ease-out both',
+              'border-revolve': 'rotate 4s linear infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              rotate: {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              },
+              glitch: {
+                '0%': { transform: 'translate(0)' },
+                '20%': { transform: 'translate(-3px, 3px)', filter: 'hue-rotate(90deg)' },
+                '40%': { transform: 'translate(-3px, -3px)', filter: 'contrast(2)' },
+                '60%': { transform: 'translate(3px, 3px)', filter: 'hue-rotate(-90deg)' },
+                '100%': { transform: 'translate(0)' }
+              },
+              zenithFlare: {
+                '0%': { transform: 'scale(0.5)', opacity: '0', filter: 'blur(20px) brightness(2)' },
+                '50%': { opacity: '0.8', filter: 'blur(10px) brightness(1.5)' },
+                '100%': { transform: 'scale(2)', opacity: '0', filter: 'blur(40px)' }
+              },
+              ascensionFloat: {
+                '0%': { transform: 'translateY(100vh) rotate(0deg)', opacity: '0' },
+                '20%': { opacity: '0.6' },
+                '80%': { opacity: '0.6' },
+                '100%': { transform: 'translateY(-20vh) rotate(360deg)', opacity: '0' }
+              },
+              screenFlash: {
+                '0%': { backgroundColor: 'transparent' },
+                '50%': { backgroundColor: 'rgba(255,255,255,0.1)' },
+                '100%': { backgroundColor: 'transparent' }
+              },
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #030014;
+        color: #e2e8f0;
+        overflow-x: hidden;
+      }
+      
+      body::after {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+        mix-blend-mode: overlay;
+      }
+
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #d946ef; }
+
+      .ascension-particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: #00f0ff;
+        box-shadow: 0 0 10px #00f0ff;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      /* Glowing Beam Border Mask */
+      .border-beam-mask {
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        -webkit-mask-composite: xor;
+        padding: 2px;
+      }
+
+      @keyframes reactor-vibrate {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(1px, -1px); }
+        50% { transform: translate(-1px, 1px); }
+        75% { transform: translate(1px, 1px); }
+      }
+
+      .reactor-active {
+        animation: reactor-vibrate 0.1s linear infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
