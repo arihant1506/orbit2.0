@@ -1,7 +1,52 @@
-import { WeekSchedule, ScheduleSlot, Category } from './types';
+
+import { WeekSchedule, ScheduleSlot, Category, UniversitySchedule } from './types';
 
 // Helper to create IDs
 const mkId = (day: string, idx: number) => `${day}-${idx}`;
+
+// --- UNIVERSITY SCHEDULE DATA ---
+export const UNI_SCHEDULE: UniversitySchedule = {
+  Monday: [
+    { id: 'm-c1', subject: 'Science of Happiness', type: 'Lecture', professor: 'Dr. Badri Bajaj', venue: 'FF8', batch: 'A1-8, A10, A15-18, C1-3, G1-2', startTime: '10:00 AM', endTime: '10:50 AM' },
+    { id: 'm-c2', subject: 'Telecommunication Networks', type: 'Lecture', professor: 'Dr Radha Raman Pandey', venue: 'FF7', batch: 'A5, A6', startTime: '11:00 AM', endTime: '11:50 AM' },
+    { id: 'm-c3', subject: 'Information Theory and Applications', type: 'Lecture', professor: 'Simmi Sharma', venue: 'FF5', batch: 'A1-10, A15-18', startTime: '12:00 PM', endTime: '12:50 PM' },
+    { id: 'm-c4', subject: 'Analog and Digital Communication', type: 'Lecture', professor: 'Vishal Narain Saxena', venue: 'FF5', batch: 'A5, A6', startTime: '03:00 PM', endTime: '03:50 PM' }
+  ],
+  Tuesday: [
+    { id: 't-c1', subject: 'Digital Signal Processing', type: 'Lecture', professor: 'Joysmita', venue: 'FF6', batch: 'A5, A6', startTime: '09:00 AM', endTime: '09:50 AM' },
+    { id: 't-c2', subject: 'Analog and Digital Communication', type: 'Lecture', professor: 'Vishal Narain Saxena', venue: 'FF8', batch: 'A5, A6', startTime: '10:00 AM', endTime: '10:50 AM' },
+    { id: 't-c3', subject: 'Information Theory and Applications', type: 'Lecture', professor: 'Simmi Sharma', venue: 'FF5', batch: 'A1-10, A15-18', startTime: '12:00 PM', endTime: '12:50 PM' },
+    { id: 't-c4', subject: 'Science of Happiness', type: 'Lecture', professor: 'Dr. Badri Bajaj', venue: 'G9', batch: 'A1-8, A10, A15-18, C1-3, G1-2', startTime: '02:00 PM', endTime: '02:50 PM' },
+    { id: 't-c5', subject: 'Analog and Digital Communication', type: 'Tutorial', professor: 'Vishal Narain Saxena', venue: 'TS17', batch: 'A5', startTime: '03:00 PM', endTime: '03:50 PM' },
+    { id: 't-c6', subject: 'Digital Signal Processing', type: 'Tutorial', professor: 'Jyoti Mishra', venue: 'TS17', batch: 'A5', startTime: '04:00 PM', endTime: '04:50 PM' }
+  ],
+  Wednesday: [
+    { id: 'w-c1', subject: 'Digital Signal Processing', type: 'Lecture', professor: 'Joysmita', venue: 'FF7', batch: 'A5, A6', startTime: '10:00 AM', endTime: '10:50 AM' },
+    { id: 'w-c2', subject: 'Analogue Electronics', type: 'Lecture', professor: 'Dr Hemant Kumar', venue: 'FF5', batch: 'A5, A6', startTime: '12:00 PM', endTime: '12:50 PM' },
+    { id: 'w-c3', subject: 'Science of Happiness', type: 'Tutorial', professor: 'Dr. Badri Bajaj', venue: 'TS13', batch: 'A1-8, G1-2', startTime: '02:00 PM', endTime: '02:50 PM' },
+    { id: 'w-c4', subject: '15B11EC471', type: 'Lab', professor: 'Dr. Rituraj, Astha Sharma', venue: 'EDC', batch: 'A5', startTime: '03:00 PM', endTime: '04:50 PM' }
+  ],
+  Thursday: [
+    { id: 'th-c1', subject: '15B17EC473', type: 'Lab', professor: 'Dr. Vijay Khare, TA 3', venue: 'SPL', batch: 'A5', startTime: '11:00 AM', endTime: '12:50 PM' },
+    { id: 'th-c2', subject: 'Analog Electronics', type: 'Tutorial', professor: 'Dr. Hemant Kumar', venue: 'TS16', batch: 'A5', startTime: '03:00 PM', endTime: '04:00 PM' }
+  ],
+  Friday: [
+    { id: 'f-c1', subject: 'Analog and Digital Communication', type: 'Lecture', professor: 'Vishal Narain Saxena', venue: 'FF7', batch: 'A5, A6', startTime: '09:00 AM', endTime: '09:50 AM' },
+    { id: 'f-c2', subject: 'Telecommunication Networks', type: 'Lecture', professor: 'Dr Radha Raman Pandey', venue: 'G4', batch: 'A5, A6', startTime: '10:00 AM', endTime: '10:50 AM' },
+    { id: 'f-c3', subject: 'Analogue Electronics', type: 'Lecture', professor: 'Dr Hemant Kumar', venue: 'FF5', batch: 'A5, A6', startTime: '12:00 PM', endTime: '12:50 PM' },
+    { id: 'f-c4', subject: '18B15EC212', type: 'Lab', professor: 'Dr. Reema Buddhiraja, Dr. Smriti Kalia', venue: 'ADC', batch: 'A5', startTime: '03:00 PM', endTime: '04:50 PM' }
+  ],
+  Saturday: [
+    { id: 's-c1', subject: 'Information Theory and Applications', type: 'Lecture', professor: 'Simmi Sharma', venue: 'FF6', batch: 'A1-10, A15-18', startTime: '09:00 AM', endTime: '09:50 AM' },
+    { id: 's-c2', subject: 'Digital Signal Processing', type: 'Lecture', professor: 'Joysmita', venue: 'FF5', batch: 'A5, A6', startTime: '10:00 AM', endTime: '10:50 AM' },
+    { id: 's-c3', subject: 'Telecommunication Networks', type: 'Lecture', professor: 'Dr Radha Raman Pandey', venue: 'FF5', batch: 'A5, A6', startTime: '11:00 AM', endTime: '11:50 AM' },
+    { id: 's-c4', subject: 'Analogue Electronics', type: 'Lecture', professor: 'Dr Hemant Kumar', venue: 'FF6', batch: 'A5, A6', startTime: '12:00 PM', endTime: '12:50 PM' }
+  ],
+  Sunday: []
+};
+
+
+// --- ROUTINE SCHEDULE DATA ---
 
 const MONDAY: ScheduleSlot[] = [
   { id: mkId('Mon', 1), timeRange: '07:30 - 07:35 AM', title: 'Wake Up & Hydrate', category: 'Physical', notes: 'Do not snooze.', isCompleted: false },
@@ -9,15 +54,21 @@ const MONDAY: ScheduleSlot[] = [
   { id: mkId('Mon', 3), timeRange: '08:05 - 09:05 AM', title: 'Gym Session', category: 'Physical', description: '1 hr session', isCompleted: false },
   { id: mkId('Mon', 4), timeRange: '09:05 - 09:40 AM', title: 'Get Ready', category: 'Logistics', description: 'Shower & Dressing', notes: 'Outfit should be laid out night before.', isCompleted: false },
   { id: mkId('Mon', 5), timeRange: '09:40 - 10:00 AM', title: 'Breakfast', category: 'Physical', description: 'High protein to sustain through class.', isCompleted: false },
-  { id: mkId('Mon', 6), timeRange: '10:00 - 01:00 PM', title: 'Class / Lectures', category: 'Academic', description: 'Absorption and Attendance', isCompleted: false },
+  
+  // --- PHASE 2: ACADEMIC BLOCK ---
+  { id: mkId('Mon', 6), timeRange: '10:00 AM - 01:00 PM', title: 'Class / Lectures', category: 'Academic', description: 'Absorption and Attendance', isCompleted: false },
   { id: mkId('Mon', 7), timeRange: '01:00 - 02:00 PM', title: 'Lunch Break', category: 'Rest', isCompleted: false },
   { id: mkId('Mon', 8), timeRange: '02:00 - 03:00 PM', title: 'Class Break', category: 'Academic', description: 'The Secret Weapon Hour', notes: 'Light revision or email management.', isCompleted: false },
   { id: mkId('Mon', 9), timeRange: '03:00 - 04:00 PM', title: 'Class / Lectures', category: 'Academic', isCompleted: false },
-  { id: mkId('Mon', 10), timeRange: '04:00 - 06:00 PM', title: 'Post-Class Break', category: 'Rest', description: 'Nap, socialize, walk, or gaming.', notes: 'Disconnect completely.', isCompleted: false },
+  
+  // --- PHASE 3: THE RESET ---
+  { id: mkId('Mon', 10), timeRange: '04:00 - 06:00 PM', title: 'Post-Class Break', category: 'Rest', description: 'Nap, socialize, walk, or gaming.', notes: 'Disconnect to recharge.', isCompleted: false },
+  
+  // --- PHASE 4: DEEP WORK GRIND ---
   { id: mkId('Mon', 11), timeRange: '06:00 - 07:30 PM', title: 'Study Session', category: 'Academic', description: 'Tackle hardest subjects.', notes: 'Brain is freshest after break.', isCompleted: false },
   { id: mkId('Mon', 12), timeRange: '07:30 - 08:30 PM', title: 'Coding', category: 'Coding', description: 'Logic and syntax practice.', isCompleted: false },
-  { id: mkId('Mon', 13), timeRange: '08:30 - 09:45 PM', title: 'Dinner & Relaxation', category: 'Rest', notes: 'Protect your sleep schedule.', isCompleted: false },
-  { id: mkId('Mon', 14), timeRange: '09:45 - 11:15 PM', title: 'Editing Work', category: 'Creative', description: 'Creative flow-state work.', isCompleted: false },
+  { id: mkId('Mon', 13), timeRange: '08:30 - 09:45 PM', title: 'Dinner & Relaxation', category: 'Rest', description: 'Protect sleep schedule.', isCompleted: false },
+  { id: mkId('Mon', 14), timeRange: '09:45 - 11:15 PM', title: 'Editing Work', category: 'Creative', description: 'Flow-state work.', notes: 'Easier late at night.', isCompleted: false },
   { id: mkId('Mon', 15), timeRange: '11:15 - 11:30 PM', title: 'Plan & Wind Down', category: 'Logistics', isCompleted: false },
   { id: mkId('Mon', 16), timeRange: '11:30 PM', title: 'Sleep', category: 'Physical', notes: 'Ensures 8 hours.', isCompleted: false },
 ];

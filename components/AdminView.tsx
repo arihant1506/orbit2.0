@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { UserProfile } from '../types';
-import { Users, ShieldCheck, Activity, Calendar, Globe, Search } from 'lucide-react';
+import { Users, ShieldCheck, Activity, Calendar, Globe, Search, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface AdminViewProps {
   users: Record<string, UserProfile>;
+  onResetUser?: (username: string) => void;
 }
 
-export const AdminView: React.FC<AdminViewProps> = ({ users }) => {
+export const AdminView: React.FC<AdminViewProps> = ({ users, onResetUser }) => {
   // Fix: Explicitly type 'a' and 'b' as UserProfile to avoid 'unknown' type errors during sorting
   const userList = Object.values(users).sort((a: UserProfile, b: UserProfile) => 
     new Date(b.joinedDate).getTime() - new Date(a.joinedDate).getTime()
@@ -72,17 +73,31 @@ export const AdminView: React.FC<AdminViewProps> = ({ users }) => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                    <div className="text-right">
                       <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Lifetime Sync</div>
                       <div className={`text-3xl font-black font-mono tracking-tighter ${syncPercent > 80 ? 'text-green-500 dark:text-green-400' : syncPercent > 40 ? 'text-cyan-500 dark:text-cyan-400' : 'text-slate-400'}`}>
                         {syncPercent}%
                       </div>
                    </div>
+                   
                    <div className="h-10 w-px bg-slate-200 dark:bg-white/5 hidden sm:block"></div>
-                   <button className="hidden sm:flex p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all">
-                      <Globe className="w-5 h-5" />
-                   </button>
+                   
+                   <div className="flex flex-col gap-2">
+                      {isOwner && onResetUser && (
+                        <button 
+                          onClick={() => onResetUser(user.username)}
+                          className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5"
+                          title="Reset Schedule to Default Template"
+                        >
+                           <RefreshCw className="w-3 h-3" /> System Reset
+                        </button>
+                      )}
+                      
+                      <button className="hidden sm:flex p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all justify-center">
+                          <Globe className="w-4 h-4" />
+                      </button>
+                   </div>
                 </div>
               </div>
 

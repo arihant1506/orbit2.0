@@ -1,5 +1,7 @@
 {
   "name": "Orbit Routine Tracker",
   "description": "A high-performance daily schedule tracker with analytics to optimize productivity, coding, and health.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

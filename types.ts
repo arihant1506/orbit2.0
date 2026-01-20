@@ -1,8 +1,11 @@
+
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
 export type Category = 'Physical' | 'Academic' | 'Coding' | 'Creative' | 'Rest' | 'Logistics';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
+
+export type ClassType = 'Lecture' | 'Lab' | 'Tutorial';
 
 export interface ScheduleSlot {
   id: string;
@@ -14,8 +17,23 @@ export interface ScheduleSlot {
   notes?: string;
 }
 
+export interface ClassSession {
+  id: string;
+  subject: string;
+  type: ClassType;
+  professor: string;
+  venue: string;
+  batch: string;
+  startTime: string; // Format: "HH:MM AM/PM"
+  endTime: string;   // Format: "HH:MM AM/PM"
+}
+
 export interface WeekSchedule {
   [key: string]: ScheduleSlot[];
+}
+
+export interface UniversitySchedule {
+  [key: string]: ClassSession[];
 }
 
 export interface WeeklyStats {
@@ -30,11 +48,20 @@ export interface UserProfile {
   password?: string;
   joinedDate: string;
   schedule: WeekSchedule;
-  lastResetDate?: string; // ISO string of the Monday of the last reset week
+  academicSchedule: UniversitySchedule; // Added this field
+  lastResetDate?: string; 
   lastWeekStats?: WeeklyStats;
+  waterConfig?: WaterConfig;
 }
 
 export interface AuthState {
   currentUser: string | null;
   users: Record<string, UserProfile>;
+}
+
+export interface WaterConfig {
+  dailyGoal: number; // Liters (5-10)
+  adaptiveMode: boolean;
+  lastDate: string; // To reset daily
+  progress: string[]; // Array of completed time slot IDs
 }

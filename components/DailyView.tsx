@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ScheduleSlot, Category } from '../types';
-import { Check, Zap, Terminal, Cpu, Palette, Activity, Moon, Anchor, Plus, X, Trash2, Edit3, Scan, ShieldCheck, ChevronUp, ChevronDown, Flame } from 'lucide-react';
+import { Check, Zap, Terminal, Cpu, Palette, Activity, Moon, Anchor, Plus, X, Trash2, Edit3, Scan, ShieldCheck, ChevronUp, ChevronDown, Flame, Volume2, VolumeX, Headphones, Waves } from 'lucide-react';
 
 interface DailyViewProps {
   dayName: string;
@@ -160,6 +160,180 @@ const playSound = (type: 'tick' | 'open' | 'save' | 'delete' | 'complete' | 'fan
       break;
   }
 };
+
+// --- AMBIENT ENGINE (PROCEDURAL AUDIO) ---
+class AmbientEngine {
+    ctx: AudioContext | null = null;
+    masterGain: GainNode | null = null;
+    activeNodes: AudioNode[] = [];
+    currentCategory: string | null = null;
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            this.ctx = new AudioContext();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.connect(this.ctx.destination);
+            this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    stop() {
+        if (!this.ctx || !this.masterGain) return;
+        const t = this.ctx.currentTime;
+        this.masterGain.gain.cancelScheduledValues(t);
+        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, t);
+        this.masterGain.gain.linearRampToValueAtTime(0, t + 2); // 2s fade out
+
+        setTimeout(() => {
+            this.activeNodes.forEach(n => {
+                try { n.disconnect(); (n as any).stop && (n as any).stop(); } catch(e){}
+            });
+            this.activeNodes = [];
+            this.currentCategory = null;
+        }, 2000);
+    }
+
+    play(category: Category) {
+        this.init();
+        if (this.currentCategory === category) return;
+        
+        // Quick Fade Out Old
+        const t = this.ctx!.currentTime;
+        if (this.currentCategory) {
+            this.masterGain!.gain.setValueAtTime(this.masterGain!.gain.value, t);
+            this.masterGain!.gain.linearRampToValueAtTime(0, t + 0.5);
+            setTimeout(() => {
+                this.activeNodes.forEach(n => { try { n.disconnect(); (n as any).stop && (n as any).stop(); } catch(e){} });
+                this.activeNodes = [];
+                this.startNewSound(category);
+            }, 500);
+        } else {
+            this.startNewSound(category);
+        }
+    }
+
+    startNewSound(category: Category) {
+        if (!this.ctx || !this.masterGain) return;
+        this.currentCategory = category;
+        const t = this.ctx.currentTime;
+        
+        // Fade In
+        this.masterGain.gain.cancelScheduledValues(t);
+        this.masterGain.gain.setValueAtTime(0, t);
+        this.masterGain.gain.linearRampToValueAtTime(0.12, t + 2);
+
+        switch(category) {
+            case 'Coding': this.genCoding(t); break;
+            case 'Academic': this.genAcademic(t); break;
+            case 'Physical': this.genPhysical(t); break;
+            case 'Rest': this.genRest(t); break;
+            default: this.genDrone(t); break;
+        }
+    }
+
+    createNoise(type: 'white'|'pink'|'brown') {
+        if (!this.ctx) return null;
+        const size = this.ctx.sampleRate * 2;
+        const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let lastOut = 0;
+        for(let i=0; i<size; i++) {
+            const white = Math.random() * 2 - 1;
+            data[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = data[i];
+            data[i] *= 3.5; 
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        return src;
+    }
+
+    genCoding(t: number) {
+        // Cyberpunk Drone: Detuned Saws
+        const osc1 = this.ctx!.createOscillator();
+        const osc2 = this.ctx!.createOscillator();
+        const filter = this.ctx!.createBiquadFilter();
+        
+        osc1.type = 'sawtooth'; osc1.frequency.value = 55;
+        osc2.type = 'sawtooth'; osc2.frequency.value = 55.5; // Detune
+        
+        filter.type = 'lowpass'; filter.frequency.value = 400;
+
+        osc1.connect(filter); osc2.connect(filter);
+        filter.connect(this.masterGain!);
+        
+        osc1.start(t); osc2.start(t);
+        this.activeNodes.push(osc1, osc2, filter);
+    }
+
+    genAcademic(t: number) {
+        // Deep Focus: Brown Noise
+        const noise = this.createNoise('brown');
+        if (!noise) return;
+        const filter = this.ctx!.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 150;
+        
+        noise.connect(filter);
+        filter.connect(this.masterGain!);
+        noise.start(t);
+        this.activeNodes.push(noise, filter);
+    }
+
+    genPhysical(t: number) {
+        // Heartbeat Pulse
+        const osc = this.ctx!.createOscillator();
+        const amp = this.ctx!.createGain();
+        osc.type = 'triangle'; osc.frequency.value = 50;
+        
+        // LFO for pulsing
+        const lfo = this.ctx!.createOscillator();
+        lfo.frequency.value = 1.5; // ~90 BPM
+        const lfoGain = this.ctx!.createGain();
+        lfoGain.gain.value = 0.5;
+        
+        lfo.connect(lfoGain);
+        lfoGain.connect(amp.gain);
+        
+        osc.connect(amp);
+        amp.connect(this.masterGain!);
+        
+        osc.start(t); lfo.start(t);
+        this.activeNodes.push(osc, amp, lfo, lfoGain);
+    }
+
+    genRest(t: number) {
+        // Binaural Zen
+        const osc1 = this.ctx!.createOscillator();
+        const osc2 = this.ctx!.createOscillator();
+        
+        osc1.type = 'sine'; osc1.frequency.value = 200;
+        osc2.type = 'sine'; osc2.frequency.value = 204; // 4Hz Theta beat
+        
+        const gain = this.ctx!.createGain();
+        gain.gain.value = 0.5;
+
+        osc1.connect(gain); osc2.connect(gain);
+        gain.connect(this.masterGain!);
+        osc1.start(t); osc2.start(t);
+        this.activeNodes.push(osc1, osc2, gain);
+    }
+
+    genDrone(t: number) {
+        const osc = this.ctx!.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 60;
+        osc.connect(this.masterGain!);
+        osc.start(t);
+        this.activeNodes.push(osc);
+    }
+}
+
+const ambientEngine = new AmbientEngine();
+
 
 const getCategoryIcon = (category: Category) => {
   switch (category) {
@@ -436,10 +610,27 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Ambient Audio State
+  const [ambientEnabled, setAmbientEnabled] = useState(false);
+  const activeSlot = slots.find(s => checkIsActive(s.timeRange));
+
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Ambient Audio Effect
+  useEffect(() => {
+    if (ambientEnabled && activeSlot) {
+       ambientEngine.play(activeSlot.category);
+    } else if (ambientEnabled && !activeSlot) {
+       ambientEngine.play('Logistics'); // Default background
+    } else {
+       ambientEngine.stop();
+    }
+    // Cleanup on unmount handled by stop logic or parent, strictly locally here we trust toggle
+    return () => { if (!ambientEnabled) ambientEngine.stop(); }
+  }, [ambientEnabled, activeSlot?.category]);
 
   const completedCount = slots.filter(s => s.isCompleted).length;
   const progress = slots.length > 0 ? Math.round((completedCount / slots.length) * 100) : 0;
@@ -541,12 +732,33 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
             <h4 className="text-[10px] sm:text-xs font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em]">Active Protocols</h4>
           </div>
-          <button onClick={() => openModal()} className="group relative px-6 py-2.5 sm:px-8 sm:py-3 bg-slate-900 dark:bg-white hover:bg-cyan-600 dark:hover:bg-cyan-400 text-white dark:text-slate-950 rounded-xl overflow-hidden transition-all shadow-lg active:scale-95">
-             <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%)] -translate-x-full group-hover:animate-shimmer" />
-             <div className="relative flex items-center gap-2 font-black italic text-xs sm:text-sm uppercase tracking-wide">
-               <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Initialize</span><span className="inline sm:hidden">Add</span>
-             </div>
-          </button>
+
+          <div className="flex items-center gap-3">
+             {/* AMBIENT AUDIO TOGGLE */}
+             <button 
+                onClick={() => setAmbientEnabled(!ambientEnabled)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500 ${ambientEnabled ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-transparent border-slate-200 dark:border-white/10 text-slate-400'}`}
+             >
+                {ambientEnabled ? <Headphones className="w-4 h-4 animate-pulse" /> : <Headphones className="w-4 h-4" />}
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest hidden sm:inline">
+                   {ambientEnabled ? 'Neural Uplink' : 'Audio Offline'}
+                </span>
+                {ambientEnabled && activeSlot && (
+                    <span className="flex gap-0.5 h-3 items-end">
+                       <span className="w-0.5 bg-cyan-500 h-full animate-pulse"></span>
+                       <span className="w-0.5 bg-cyan-500 h-1/2 animate-pulse" style={{animationDelay: '0.1s'}}></span>
+                       <span className="w-0.5 bg-cyan-500 h-3/4 animate-pulse" style={{animationDelay: '0.2s'}}></span>
+                    </span>
+                )}
+             </button>
+
+             <button onClick={() => openModal()} className="group relative px-6 py-2.5 sm:px-8 sm:py-3 bg-slate-900 dark:bg-white hover:bg-cyan-600 dark:hover:bg-cyan-400 text-white dark:text-slate-950 rounded-xl overflow-hidden transition-all shadow-lg active:scale-95">
+                <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%)] -translate-x-full group-hover:animate-shimmer" />
+                <div className="relative flex items-center gap-2 font-black italic text-xs sm:text-sm uppercase tracking-wide">
+                  <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Initialize</span><span className="inline sm:hidden">Add</span>
+                </div>
+             </button>
+          </div>
       </div>
 
       {/* --- SLOT CONTAINER --- */}

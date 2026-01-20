@@ -206,8 +206,8 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
           <h3 className="text-xs sm:text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
             <Cpu className="w-4 h-4 text-cyan-400" /> Protocol Output Levels
           </h3>
-          <div className="h-48 sm:h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-48 sm:h-64 w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={analytics.chartData} barGap={0} barCategoryGap="20%">
                 <XAxis 
                   dataKey="name" 
@@ -243,7 +243,7 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
           </h3>
           <p className="text-[9px] text-emerald-600/60 dark:text-emerald-500/60 mb-4 font-mono uppercase tracking-widest">Targeting Optimization</p>
           
-          <div className="flex-1 min-h-[250px] w-full relative">
+          <div className="flex-1 min-h-[250px] w-full relative min-w-0">
              {/* Background Target UI */}
              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
                <div className="w-[70%] h-[70%] border border-emerald-500/30 rounded-full" />
@@ -252,7 +252,7 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
                <div className="h-full w-[1px] bg-emerald-500/20 absolute top-0 left-1/2" />
              </div>
 
-             <ResponsiveContainer width="100%" height="100%">
+             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={analytics.chartData}>
                  <PolarGrid stroke="#94a3b8" strokeOpacity={0.3} />
                  <PolarAngleAxis 

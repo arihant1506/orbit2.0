@@ -39,6 +39,7 @@
               'ascension-float': 'ascensionFloat 4s ease-in-out infinite',
               'screen-flash': 'screenFlash 0.5s ease-out both',
               'border-revolve': 'rotate 4s linear infinite',
+              'tech-reveal': 'techReveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
             },
             keyframes: {
               float: {
@@ -75,6 +76,10 @@
               shimmer: {
                 '0%': { transform: 'translateX(-100%)' },
                 '100%': { transform: 'translateX(100%)' }
+              },
+              techReveal: {
+                '0%': { opacity: '0', transform: 'scale(0.98) translateY(10px)', filter: 'blur(8px)' },
+                '100%': { opacity: '1', transform: 'scale(1) translateY(0)', filter: 'blur(0)' }
               }
             }
           }
@@ -139,7 +144,20 @@
         animation: reactor-vibrate 0.1s linear infinite;
       }
     </style>
-  </head>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1"
+  }
+}
+</script>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
