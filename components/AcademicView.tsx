@@ -165,16 +165,16 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
     <div className="animate-fade-in-up space-y-6 sm:space-y-8 pb-20">
       
       {/* --- HEADER MODULE --- */}
-      <div className="relative p-6 sm:p-10 rounded-[2.5rem] bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl group">
+      <div className="relative p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] liquid-glass overflow-hidden shadow-2xl group">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
-        <div className="absolute top-0 right-0 p-10 opacity-10">
-           <GraduationCap className="w-32 h-32 text-cyan-500" />
+        <div className="absolute top-0 right-0 p-6 sm:p-10 opacity-10">
+           <GraduationCap className="w-24 h-24 sm:w-32 sm:h-32 text-cyan-500" />
         </div>
         <div className="relative z-10">
-           <div className="flex items-center gap-2 text-cyan-500 font-mono text-[10px] uppercase tracking-[0.4em] mb-2">
+           <div className="flex items-center gap-2 text-cyan-500 font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.4em] mb-2">
               <Zap className="w-3 h-3" /> Academic Uplink Established
            </div>
-           <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white uppercase font-sans">
+           <h2 className="text-3xl sm:text-6xl font-black italic tracking-tighter text-white uppercase font-sans">
              University <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">Manifest</span>
            </h2>
         </div>
@@ -186,13 +186,13 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
           <button 
             key={day}
             onClick={() => setSelectedDay(day)}
-            className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] border transition-all duration-300 ${
+            className={`flex-shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-mono text-[9px] sm:text-[10px] sm:text-xs uppercase tracking-[0.2em] border transition-all duration-300 ${
               selectedDay === day 
               ? 'bg-cyan-950/50 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]' 
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/5 text-slate-400 hover:border-cyan-500/50'
             }`}
           >
-            {day}
+            {day.slice(0, 3)}
           </button>
         ))}
       </div>
@@ -204,9 +204,9 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
          </div>
          <button 
            onClick={() => openModal()} 
-           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold uppercase text-[10px] tracking-wider hover:bg-cyan-500 dark:hover:bg-cyan-400 transition-all shadow-lg active:scale-95"
+           className="flex items-center gap-2 px-3 py-2 sm:px-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold uppercase text-[9px] sm:text-[10px] tracking-wider hover:bg-cyan-500 dark:hover:bg-cyan-400 transition-all shadow-lg active:scale-95"
          >
-            <Plus className="w-4 h-4" /> Add Class
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Class
          </button>
       </div>
 
@@ -243,17 +243,19 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                      <div className="absolute inset-0 bg-slate-950/50 z-10 pointer-events-none grayscale" />
                   )}
                   
-                  <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:gap-8 relative z-0">
+                  <div className="p-5 sm:p-8 flex flex-col md:flex-row gap-5 md:gap-8 relative z-0">
                      {/* Time Column */}
-                     <div className="flex flex-col justify-center min-w-[100px] border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 pb-4 md:pb-0 md:pr-8">
-                        <div className={`text-2xl font-black font-mono tracking-tighter ${status === 'live' ? 'text-cyan-400' : 'text-slate-900 dark:text-white'}`}>
-                           {cls.startTime}
-                        </div>
-                        <div className="text-xs font-mono text-slate-400 mt-1 flex items-center gap-1">
-                           <ChevronRight className="w-3 h-3" /> {cls.endTime}
+                     <div className="flex flex-row md:flex-col justify-between md:justify-center items-center md:items-start md:min-w-[100px] border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 pb-4 md:pb-0 md:pr-8">
+                        <div className="flex items-baseline gap-2 md:block">
+                            <div className={`text-xl sm:text-2xl font-black font-mono tracking-tighter ${status === 'live' ? 'text-cyan-400' : 'text-slate-900 dark:text-white'}`}>
+                            {cls.startTime}
+                            </div>
+                            <div className="text-[10px] sm:text-xs font-mono text-slate-400 mt-0 md:mt-1 flex items-center gap-1">
+                            <ChevronRight className="w-3 h-3" /> {cls.endTime}
+                            </div>
                         </div>
                         {status === 'live' && (
-                           <div className="mt-2 px-2 py-0.5 bg-cyan-500 text-slate-950 text-[9px] font-bold font-mono uppercase tracking-widest w-fit rounded animate-pulse">
+                           <div className="px-2 py-0.5 bg-cyan-500 text-slate-950 text-[8px] sm:text-[9px] font-bold font-mono uppercase tracking-widest w-fit rounded animate-pulse">
                               LIVE NOW
                            </div>
                         )}
@@ -262,11 +264,11 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                      {/* Details Column */}
                      <div className="flex-1 space-y-4">
                         <div className="flex items-start justify-between gap-4">
-                           <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white uppercase leading-tight tracking-tight">
+                           <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white uppercase leading-tight tracking-tight line-clamp-2">
                               {cls.subject}
                            </h3>
-                           <div className="flex flex-col items-end gap-2">
-                               <span className={`px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest border ${theme.badge}`}>
+                           <div className="flex flex-col items-end gap-2 shrink-0">
+                               <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-mono font-bold uppercase tracking-widest border ${theme.badge}`}>
                                   {cls.type}
                                </span>
                                {/* EDIT/DELETE ACTIONS */}
@@ -277,34 +279,34 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                           <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${theme.bg} ${theme.color}`}>
-                                 <User className="w-4 h-4" />
+                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+                           <div className="flex items-center gap-2 sm:gap-3">
+                              <div className={`p-1.5 sm:p-2 rounded-lg ${theme.bg} ${theme.color}`}>
+                                 <User className="w-3 h-3 sm:w-4 sm:h-4" />
                               </div>
-                              <div>
-                                 <p className="text-[9px] text-slate-500 font-mono uppercase tracking-wider">Professor</p>
-                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{cls.professor || 'N/A'}</p>
+                              <div className="min-w-0">
+                                 <p className="text-[8px] sm:text-[9px] text-slate-500 font-mono uppercase tracking-wider truncate">Professor</p>
+                                 <p className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{cls.professor || 'N/A'}</p>
                               </div>
                            </div>
 
-                           <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${theme.bg} ${theme.color}`}>
-                                 <MapPin className="w-4 h-4" />
+                           <div className="flex items-center gap-2 sm:gap-3">
+                              <div className={`p-1.5 sm:p-2 rounded-lg ${theme.bg} ${theme.color}`}>
+                                 <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
                               </div>
-                              <div>
-                                 <p className="text-[9px] text-slate-500 font-mono uppercase tracking-wider">Venue</p>
-                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">{cls.venue || 'N/A'}</p>
+                              <div className="min-w-0">
+                                 <p className="text-[8px] sm:text-[9px] text-slate-500 font-mono uppercase tracking-wider truncate">Venue</p>
+                                 <p className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 font-mono truncate">{cls.venue || 'N/A'}</p>
                               </div>
                            </div>
                            
-                           <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${theme.bg} ${theme.color}`}>
-                                 <Users className="w-4 h-4" />
+                           <div className="flex items-center gap-2 sm:gap-3 col-span-2 sm:col-span-1">
+                              <div className={`p-1.5 sm:p-2 rounded-lg ${theme.bg} ${theme.color}`}>
+                                 <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                               </div>
-                              <div>
-                                 <p className="text-[9px] text-slate-500 font-mono uppercase tracking-wider">Batch</p>
-                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{cls.batch || 'N/A'}</p>
+                              <div className="min-w-0">
+                                 <p className="text-[8px] sm:text-[9px] text-slate-500 font-mono uppercase tracking-wider truncate">Batch</p>
+                                 <p className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{cls.batch || 'N/A'}</p>
                               </div>
                            </div>
                         </div>
@@ -317,7 +319,7 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                    <div className="flex items-center gap-4 px-4 opacity-60">
                       <div className="h-full w-px bg-dashed border-l border-slate-700 mx-auto h-8"></div>
                       <div className="flex-1 h-px bg-slate-800"></div>
-                      <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                      <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-mono text-slate-500 uppercase tracking-widest">
                          <Coffee className="w-3 h-3" />
                          Break: {Math.floor(breakDuration / 60) > 0 ? `${Math.floor(breakDuration / 60)} hr ` : ''}{breakDuration % 60} min
                       </div>
@@ -333,25 +335,25 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
       {/* --- ADD/EDIT MODAL --- */}
       {modalOpen && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-slate-900/60 animate-fade-in">
-             <div className="w-full max-w-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+             <div className="w-full max-w-lg liquid-glass rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
                 
                 <div className="flex items-start justify-between mb-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                           <ShieldCheck className="w-5 h-5 text-purple-500" />
-                           <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-[0.3em]">{editingId ? 'Modify Session' : 'New Entry'}</span>
+                           <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                           <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-400 uppercase tracking-[0.3em]">{editingId ? 'Modify Session' : 'New Entry'}</span>
                         </div>
-                        <h3 className="text-3xl font-black italic text-slate-900 dark:text-white uppercase tracking-tighter">Class Details</h3>
+                        <h3 className="text-2xl sm:text-3xl font-black italic text-slate-900 dark:text-white uppercase tracking-tighter">Class Details</h3>
                     </div>
                     <button onClick={() => setModalOpen(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                        <X className="w-6 h-6 text-slate-500" />
+                        <X className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
                     </button>
                 </div>
 
                 <div className="space-y-4">
                     {/* Time Picker Block */}
-                    <div className="bg-slate-50 dark:bg-black/50 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex justify-center gap-4">
+                    <div className="bg-slate-50 dark:bg-black/50 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex justify-center gap-2 sm:gap-4">
                         <div className="flex gap-1 items-center">
                              <TimeWheel value={sHour} onChange={setSHour} max={12} label="HR" />
                              <TimeWheel value={sMin} onChange={setSMin} max={60} label="MIN" />
@@ -372,13 +374,13 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Subject Name</label>
-                        <input value={subject} onChange={e => setSubject(e.target.value)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-sm outline-none focus:border-purple-500" placeholder="e.g. Data Structures" />
+                        <label className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Subject Name</label>
+                        <input value={subject} onChange={e => setSubject(e.target.value)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-xs sm:text-sm outline-none focus:border-purple-500" placeholder="e.g. Data Structures" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Type</label>
+                            <label className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Type</label>
                             <select value={type} onChange={e => setType(e.target.value as ClassType)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-xs outline-none focus:border-purple-500">
                                 <option value="Lecture">Lecture</option>
                                 <option value="Lab">Lab</option>
@@ -386,23 +388,23 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                             </select>
                          </div>
                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Professor</label>
+                            <label className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Professor</label>
                             <input value={professor} onChange={e => setProfessor(e.target.value)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-xs outline-none focus:border-purple-500" placeholder="Dr. Name" />
                          </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Venue</label>
+                            <label className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Venue</label>
                             <input value={venue} onChange={e => setVenue(e.target.value)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-xs outline-none focus:border-purple-500" placeholder="Room 101" />
                          </div>
                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Batch</label>
+                            <label className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-500 uppercase ml-2">Batch</label>
                             <input value={batch} onChange={e => setBatch(e.target.value)} className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-white/10 rounded-xl p-3 text-slate-900 dark:text-white font-mono text-xs outline-none focus:border-purple-500" placeholder="A1, B2..." />
                          </div>
                     </div>
 
-                    <button onClick={handleSave} className="w-full py-4 mt-2 bg-slate-900 dark:bg-white hover:bg-purple-500 dark:hover:bg-purple-400 text-white dark:text-slate-950 font-black italic uppercase rounded-2xl transition-all shadow-lg hover:shadow-purple-500/25 active:scale-95 flex items-center justify-center gap-2">
+                    <button onClick={handleSave} className="w-full py-3 sm:py-4 mt-2 bg-slate-900 dark:bg-white hover:bg-purple-500 dark:hover:bg-purple-400 text-white dark:text-slate-950 font-black italic uppercase rounded-2xl transition-all shadow-lg hover:shadow-purple-500/25 active:scale-95 flex items-center justify-center gap-2 text-xs sm:text-sm">
                         <Terminal className="w-4 h-4" /> {editingId ? 'Update Session' : 'Commit Entry'}
                     </button>
                 </div>

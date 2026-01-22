@@ -97,7 +97,7 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* A. ORBIT RESONANCE GAUGE (HERO) */}
-        <div className="lg:col-span-1 relative group p-6 sm:p-8 rounded-[2.5rem] bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-white/5 overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
+        <div className="lg:col-span-1 relative group p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-white/5 overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
           <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent" />
           
           <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
@@ -138,7 +138,7 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
         <div className="lg:col-span-2 flex flex-col gap-4 sm:gap-6">
           
           {/* Heatmap Card */}
-          <div className="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[2rem] p-6 sm:p-8 relative overflow-hidden backdrop-blur-md shadow-sm">
+          <div className="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[1.5rem] sm:rounded-[2rem] p-6 sm:p-8 relative overflow-hidden backdrop-blur-md shadow-sm">
              <div className="absolute top-0 right-0 p-6 opacity-5"><CalendarGrid /></div>
              <h3 className="text-xs sm:text-sm font-mono text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
                 <Grid className="w-4 h-4 text-purple-400" /> Temporal Consistency
@@ -199,14 +199,14 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         
         {/* C. FREQUENCY VISUALIZER (BAR CHART REDESIGN) */}
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2.5rem] relative overflow-hidden shadow-lg">
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden shadow-lg">
           <div className="absolute -right-10 -bottom-10 opacity-5">
              <TrendingUp className="w-48 h-48 text-cyan-500" />
           </div>
           <h3 className="text-xs sm:text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
             <Cpu className="w-4 h-4 text-cyan-400" /> Protocol Output Levels
           </h3>
-          <div className="h-48 sm:h-64 w-full min-w-0">
+          <div className="h-40 sm:h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={analytics.chartData} barGap={0} barCategoryGap="20%">
                 <XAxis 
@@ -234,7 +234,7 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
         </div>
 
         {/* D. FOCUS VECTOR (RADAR CHART REDESIGN) */}
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2.5rem] relative overflow-hidden shadow-lg flex flex-col">
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden shadow-lg flex flex-col">
           <div className="absolute top-0 right-0 p-6 opacity-10">
              <Crosshair className="w-16 h-16 text-emerald-500 animate-spin-slow" />
           </div>

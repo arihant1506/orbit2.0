@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleSlot, UniversitySchedule, WeekSchedule, WaterConfig, OrbitNotification } from '../types';
-import { Bell, Clock, Droplet, GraduationCap, ArrowRight, Zap, X } from 'lucide-react';
+import { Bell, Clock, Droplet, GraduationCap, Zap, X, AlertTriangle, Activity, ChevronRight, Timer } from 'lucide-react';
 
 interface NotificationSystemProps {
   schedule: WeekSchedule;
@@ -49,26 +49,26 @@ const getWaterSlots = (dailyGoal: number) => {
 };
 
 // --- SYSTEM NOTIFICATION TRIGGER ---
-const sendSystemNotification = async (title: string, body: string, tag: string) => {
+const sendSystemNotification = async (title: string, body: string, tag: string, urgent: boolean = false) => {
     if (Notification.permission === 'granted') {
         try {
-            // Try Service Worker first (Best for Mobile Background)
+            // Service Worker (Mobile Background Support)
             if ('serviceWorker' in navigator) {
                 const reg = await navigator.serviceWorker.ready;
                 if (reg && reg.showNotification) {
                     await reg.showNotification(title, {
                         body,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png', // Generic Planet Icon
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
                         badge: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
-                        vibrate: [200, 100, 200, 100, 200],
+                        vibrate: urgent ? [500, 100, 500, 100, 500] : [200, 100, 200],
                         tag: tag,
                         renotify: true,
-                        requireInteraction: true // Keeps it in system tray until interaction
+                        requireInteraction: urgent
                     } as any);
                     return;
                 }
             }
-            // Fallback for Desktop/Non-SW
+            // Desktop Fallback
             new Notification(title, { 
                 body, 
                 icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
@@ -81,155 +81,148 @@ const sendSystemNotification = async (title: string, body: string, tag: string) 
 };
 
 // --- SOUND FX ---
-const playAlert = () => {
+const playAlert = (urgency: 'normal' | 'critical') => {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
     const t = ctx.currentTime;
     
-    // Sci-fi "Ping"
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     
     osc.connect(gain);
     gain.connect(ctx.destination);
     
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(800, t);
-    osc.frequency.exponentialRampToValueAtTime(400, t + 0.3);
-    
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-    
-    osc.start(t);
-    osc.stop(t + 0.3);
+    if (urgency === 'critical') {
+        // Urgent Alarm
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, t);
+        osc.frequency.linearRampToValueAtTime(1200, t + 0.1);
+        osc.frequency.linearRampToValueAtTime(800, t + 0.2);
+        osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+        
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
+        
+        osc.start(t);
+        osc.stop(t + 0.6);
+    } else {
+        // Standard Ping
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, t);
+        osc.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+        
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+        
+        osc.start(t);
+        osc.stop(t + 0.3);
+    }
 };
 
 export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule, academicSchedule, waterConfig, dayName }) => {
   const [activeNotifications, setActiveNotifications] = useState<OrbitNotification[]>([]);
-  const notifiedRef = useRef<Set<string>>(new Set());
+  
+  // Track triggered alerts to prevent duplicate sound/system-notifs
+  // Format: "ID-15" or "ID-5"
+  const alertHistory = useRef<Set<string>>(new Set());
   
   // Logic Loop
   useEffect(() => {
     const checkEvents = () => {
         const now = new Date();
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
-        const LOOKAHEAD_MINUTES = 20; // Show notification 20 mins before
+        
+        // VISUAL WINDOW: Show in app 15 minutes before
+        const VISUAL_WINDOW = 15; 
         
         const newNotifications: OrbitNotification[] = [];
 
-        // 1. CHECK DAILY TASKS
-        const todaysTasks = schedule[dayName] || [];
-        todaysTasks.forEach(task => {
-            if (task.isCompleted) return;
-            const startMin = parseTime(task.timeRange);
+        const processEvent = (id: string, title: string, subtitle: string, startTime: string, type: 'task' | 'class' | 'water') => {
+            const startMin = parseTime(startTime);
             if (startMin === -1) return;
-
+            
             const diff = startMin - currentMinutes;
+            const uniqueId = `${type}-${dayName}-${id}`;
 
-            // Trigger window: 0 to 20 mins before
-            if (diff > 0 && diff <= LOOKAHEAD_MINUTES) {
-                const uniqueId = `task-${dayName}-${task.id}`;
-                const progress = Math.min(100, Math.max(0, ((LOOKAHEAD_MINUTES - diff) / LOOKAHEAD_MINUTES) * 100));
-                
+            // 1. Alert Logic (Strict 15m and 5m triggers)
+            // If < 0, event started, don't trigger new alerts, maybe clear old ones (handled by visual window)
+            
+            if (diff <= 15 && diff > 0) {
+                // Determine Urgency
+                if (diff <= 5) {
+                    // Critical Range (5 mins or less)
+                    if (!alertHistory.current.has(`${uniqueId}-5`)) {
+                        playAlert('critical');
+                        sendSystemNotification(
+                            `CRITICAL: ${title}`, 
+                            `HURRY! Starting in ${diff} mins. ${subtitle}`,
+                            uniqueId,
+                            true
+                        );
+                        alertHistory.current.add(`${uniqueId}-5`);
+                        // Also mark 15 as done so we don't back-trigger if app opened late
+                        alertHistory.current.add(`${uniqueId}-15`);
+                    }
+                } else {
+                    // Warning Range (15 mins)
+                    if (!alertHistory.current.has(`${uniqueId}-15`)) {
+                        playAlert('normal');
+                        sendSystemNotification(
+                            `UPCOMING: ${title}`, 
+                            `Starting in ${diff} mins. ${subtitle}`,
+                            uniqueId,
+                            false
+                        );
+                        alertHistory.current.add(`${uniqueId}-15`);
+                    }
+                }
+
+                // 2. Visual Notification Data
+                // Colors based on Type & Urgency
+                let accent = '';
+                if (type === 'class') accent = diff <= 5 ? 'red' : 'cyan';
+                else if (type === 'task') accent = diff <= 5 ? 'pink' : 'amber';
+                else accent = diff <= 5 ? 'blue' : 'indigo';
+
+                const progress = Math.min(100, Math.max(0, ((VISUAL_WINDOW - diff) / VISUAL_WINDOW) * 100));
+
                 newNotifications.push({
                     id: uniqueId,
-                    type: 'task',
-                    title: task.title,
-                    subtitle: `Routine Protocol • ${diff}m to start`,
-                    startTimeStr: task.timeRange.split('-')[0].trim(),
+                    type,
+                    title,
+                    subtitle,
+                    startTimeStr: startTime,
                     minutesUntil: diff,
-                    progress: progress,
-                    accentColor: 'text-amber-500 border-amber-500/50 bg-amber-500/10'
+                    progress,
+                    accentColor: accent // passing simple color key for styling logic below
                 });
-                
-                // Sound logic (play once when it first enters the window)
-                if (!notifiedRef.current.has(uniqueId)) {
-                    playAlert();
-                    sendSystemNotification(
-                        `PROTOCOL: ${task.title}`, 
-                        `Time: ${task.timeRange.split('-')[0].trim()} | Starting in ${diff} minutes`,
-                        uniqueId
-                    );
-                    notifiedRef.current.add(uniqueId);
-                }
+            }
+        };
+
+        // CHECK DAILY TASKS
+        (schedule[dayName] || []).forEach(task => {
+            if (!task.isCompleted) {
+                processEvent(task.id, task.title, 'Daily Protocol', task.timeRange.split('-')[0].trim(), 'task');
             }
         });
 
-        // 2. CHECK ACADEMIC CLASSES
-        const todaysClasses = academicSchedule[dayName] || [];
-        todaysClasses.forEach(cls => {
-            const startMin = parseTime(cls.startTime);
-            if (startMin === -1) return;
-            const diff = startMin - currentMinutes;
-
-            if (diff > 0 && diff <= LOOKAHEAD_MINUTES) {
-                const uniqueId = `class-${dayName}-${cls.id}`;
-                const progress = Math.min(100, Math.max(0, ((LOOKAHEAD_MINUTES - diff) / LOOKAHEAD_MINUTES) * 100));
-
-                newNotifications.push({
-                    id: uniqueId,
-                    type: 'class',
-                    title: cls.subject,
-                    subtitle: `${cls.type} @ ${cls.venue} • ${diff}m to start`,
-                    startTimeStr: cls.startTime,
-                    minutesUntil: diff,
-                    progress: progress,
-                    accentColor: 'text-cyan-400 border-cyan-500/50 bg-cyan-500/10'
-                });
-
-                if (!notifiedRef.current.has(uniqueId)) {
-                    playAlert();
-                    sendSystemNotification(
-                        `ACADEMIC ALERT: ${cls.subject}`, 
-                        `Venue: ${cls.venue} | Starting in ${diff} minutes`,
-                        uniqueId
-                    );
-                    notifiedRef.current.add(uniqueId);
-                }
-            }
+        // CHECK ACADEMIC CLASSES
+        (academicSchedule[dayName] || []).forEach(cls => {
+            processEvent(cls.id, cls.subject, `${cls.type} @ ${cls.venue}`, cls.startTime, 'class');
         });
 
-        // 3. CHECK WATER
+        // CHECK WATER
         if (waterConfig) {
-            const slots = getWaterSlots(waterConfig.dailyGoal);
-            slots.forEach((slot, idx) => {
-                const targetMin = parseTime(slot.time);
-                const diff = targetMin - currentMinutes;
-                
-                // Water is simpler: 10 min warning
-                if (diff > 0 && diff <= 10) {
-                     // Check if already done? (Simplified: check config progress)
-                     if (!waterConfig.progress.includes(slot.id)) {
-                         const uniqueId = `water-${dayName}-${slot.id}`;
-                         const progress = Math.min(100, Math.max(0, ((10 - diff) / 10) * 100));
-
-                         newNotifications.push({
-                            id: uniqueId,
-                            type: 'water',
-                            title: slot.label,
-                            subtitle: `Hydration Required • ${diff}m`,
-                            startTimeStr: slot.time,
-                            minutesUntil: diff,
-                            progress: progress,
-                            accentColor: 'text-blue-500 border-blue-500/50 bg-blue-500/10'
-                         });
-
-                         if (!notifiedRef.current.has(uniqueId)) {
-                             playAlert();
-                             sendSystemNotification(
-                                 `HYDRATION REMINDER`, 
-                                 `${slot.label} due at ${slot.time}`,
-                                 uniqueId
-                             );
-                             notifiedRef.current.add(uniqueId);
-                         }
-                     }
+            getWaterSlots(waterConfig.dailyGoal).forEach(slot => {
+                // Water only notifies if not done.
+                if (!waterConfig.progress.includes(slot.id)) {
+                    processEvent(slot.id, slot.label, 'Hydration Check', slot.time, 'water');
                 }
             });
         }
 
-        // Sort by urgency (lowest minutesUntil first)
+        // Sort: Critical (low time) first
         setActiveNotifications(newNotifications.sort((a, b) => a.minutesUntil - b.minutesUntil));
     };
 
@@ -243,61 +236,111 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
   if (activeNotifications.length === 0) return null;
 
   return (
-    <div className="fixed top-20 right-4 sm:right-6 z-[60] flex flex-col gap-3 w-full max-w-[320px] sm:max-w-sm pointer-events-none">
-       {activeNotifications.map((notif) => (
-           <div 
-             key={notif.id}
-             className={`relative overflow-hidden rounded-2xl backdrop-blur-xl border p-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-tech-reveal pointer-events-auto group transition-all hover:scale-105 ${notif.type === 'class' ? 'bg-slate-900/90 border-cyan-500/30' : notif.type === 'task' ? 'bg-slate-900/90 border-amber-500/30' : 'bg-slate-900/90 border-blue-500/30'}`}
-           >
-              {/* Scanline Effect */}
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.05] mix-blend-overlay" />
-              <div className="absolute top-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
-              
-              <div className="flex items-start gap-3 relative z-10">
-                  {/* Icon Box */}
-                  <div className={`p-3 rounded-xl border ${notif.accentColor} shadow-[0_0_15px_rgba(0,0,0,0.2)] flex-shrink-0 relative`}>
-                      {notif.type === 'class' && <GraduationCap className="w-5 h-5 animate-pulse" />}
-                      {notif.type === 'task' && <Clock className="w-5 h-5 animate-pulse" />}
-                      {notif.type === 'water' && <Droplet className="w-5 h-5 animate-pulse" />}
-                      
-                      {/* Spinner for urgency */}
-                      <div className="absolute inset-0 border-t-2 border-current rounded-xl animate-spin-slow opacity-50" />
-                  </div>
+    <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] flex flex-col gap-4 w-full max-w-[340px] pointer-events-none perspective-1000">
+       {activeNotifications.map((notif, idx) => {
+           const isCritical = notif.minutesUntil <= 5;
+           
+           // Style Config based on type & urgency
+           let colors = {
+               bg: 'bg-slate-900/90',
+               border: 'border-slate-700',
+               glow: 'shadow-none',
+               text: 'text-slate-100',
+               iconBg: 'bg-slate-800',
+               iconColor: 'text-slate-400',
+               bar: 'bg-slate-600'
+           };
 
-                  <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                         <h4 className="text-sm font-black italic text-white uppercase tracking-tight truncate leading-tight">{notif.title}</h4>
-                         <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">{notif.startTimeStr}</span>
-                      </div>
-                      <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mt-1 truncate">{notif.subtitle}</p>
-                      
-                      {/* Live Timer Text */}
-                      <div className="mt-2 flex items-center gap-1.5">
-                          <Zap className={`w-3 h-3 ${notif.type === 'class' ? 'text-cyan-500' : 'text-amber-500'}`} />
-                          <span className="text-[9px] font-bold uppercase text-white">Starting in <span className="font-mono text-lg mx-1">{notif.minutesUntil}</span> min</span>
-                      </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => setActiveNotifications(prev => prev.filter(n => n.id !== notif.id))}
-                    className="text-slate-500 hover:text-white transition-colors"
-                  >
-                     <X className="w-4 h-4" />
-                  </button>
-              </div>
+           if (notif.accentColor === 'red') { // Critical Class
+               colors = { bg: 'bg-red-950/90', border: 'border-red-500/50', glow: 'shadow-[0_0_30px_rgba(239,68,68,0.4)]', text: 'text-red-100', iconBg: 'bg-red-500/20', iconColor: 'text-red-500', bar: 'bg-red-500' };
+           } else if (notif.accentColor === 'pink') { // Critical Task
+               colors = { bg: 'bg-pink-950/90', border: 'border-pink-500/50', glow: 'shadow-[0_0_30px_rgba(236,72,153,0.4)]', text: 'text-pink-100', iconBg: 'bg-pink-500/20', iconColor: 'text-pink-500', bar: 'bg-pink-500' };
+           } else if (notif.accentColor === 'cyan') { // Normal Class
+               colors = { bg: 'bg-slate-900/90', border: 'border-cyan-500/30', glow: 'shadow-[0_0_20px_rgba(6,182,212,0.2)]', text: 'text-cyan-50', iconBg: 'bg-cyan-500/10', iconColor: 'text-cyan-400', bar: 'bg-cyan-500' };
+           } else if (notif.accentColor === 'amber') { // Normal Task
+               colors = { bg: 'bg-slate-900/90', border: 'border-amber-500/30', glow: 'shadow-[0_0_20px_rgba(245,158,11,0.2)]', text: 'text-amber-50', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', bar: 'bg-amber-500' };
+           } else { // Water/Other
+               colors = { bg: 'bg-slate-900/90', border: 'border-blue-500/30', glow: 'shadow-[0_0_20px_rgba(59,130,246,0.2)]', text: 'text-blue-50', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500', bar: 'bg-blue-500' };
+           }
 
-              {/* Progress Bar Container */}
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800">
-                  <div 
-                    className={`h-full transition-all duration-1000 ease-linear ${notif.type === 'class' ? 'bg-cyan-500 shadow-[0_0_10px_#06b6d4]' : notif.type === 'task' ? 'bg-amber-500 shadow-[0_0_10px_#f59e0b]' : 'bg-blue-500 shadow-[0_0_10px_#3b82f6]'}`}
-                    style={{ width: `${notif.progress}%` }}
-                  >
-                      {/* Shimmer on bar */}
-                      <div className="absolute inset-0 bg-white/50 w-full h-full animate-[shimmer_1s_infinite]" />
-                  </div>
-              </div>
-           </div>
-       ))}
+           return (
+             <div 
+               key={notif.id}
+               className={`relative pointer-events-auto transform transition-all duration-500 animate-tech-reveal hover:scale-[1.02] active:scale-95 group ${isCritical ? 'translate-x-[-10px]' : ''}`}
+               style={{ zIndex: 100 - idx }}
+             >
+                 {/* HOLOGRAPHIC CARD CONTAINER */}
+                 <div className={`relative overflow-hidden rounded-2xl backdrop-blur-xl border ${colors.bg} ${colors.border} ${colors.glow} p-0`}>
+                     
+                     {/* 1. Animated Gradient Border Overlay */}
+                     <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.1)_50%,transparent_75%)] bg-[length:250%_250%] animate-shimmer" />
+                     {isCritical && <div className="absolute inset-0 z-0 bg-red-500/10 animate-pulse" />}
+
+                     <div className="relative z-10 p-4">
+                         <div className="flex items-start gap-3">
+                             {/* ICON MODULE */}
+                             <div className={`relative flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border border-white/5 ${colors.iconBg} ${colors.iconColor}`}>
+                                 {isCritical ? <AlertTriangle className="w-6 h-6 animate-ping absolute opacity-30" /> : null}
+                                 {notif.type === 'class' && <GraduationCap className={`w-6 h-6 ${isCritical ? 'animate-bounce' : ''}`} />}
+                                 {notif.type === 'task' && <Clock className={`w-6 h-6 ${isCritical ? 'animate-spin-slow' : ''}`} />}
+                                 {notif.type === 'water' && <Droplet className={`w-6 h-6 ${isCritical ? 'animate-bounce' : ''}`} />}
+                                 
+                                 {/* Tech Ring */}
+                                 <svg className="absolute inset-0 w-full h-full p-0.5 animate-spin-slow opacity-50">
+                                     <circle cx="50%" cy="50%" r="48%" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
+                                 </svg>
+                             </div>
+
+                             {/* CONTENT MODULE */}
+                             <div className="flex-1 min-w-0">
+                                 <div className="flex justify-between items-start mb-0.5">
+                                     <h4 className={`text-sm font-black italic uppercase tracking-wider truncate leading-tight ${colors.text} ${isCritical ? 'animate-pulse' : ''}`}>
+                                         {notif.title}
+                                     </h4>
+                                     {isCritical && <span className="flex-shrink-0 text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse">CRITICAL</span>}
+                                 </div>
+                                 
+                                 <div className="flex items-center gap-2 mb-2">
+                                     <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest truncate max-w-[140px]">{notif.subtitle}</span>
+                                     <div className="h-px flex-1 bg-white/10" />
+                                     <span className={`text-xs font-mono font-bold ${colors.iconColor}`}>{notif.startTimeStr}</span>
+                                 </div>
+
+                                 {/* COUNTDOWN MODULE */}
+                                 <div className="flex items-center justify-between gap-3">
+                                     <div className="flex items-center gap-1.5">
+                                         {isCritical ? <Timer className={`w-3 h-3 ${colors.iconColor} animate-pulse`} /> : <Zap className={`w-3 h-3 ${colors.iconColor}`} />}
+                                         <span className="text-[10px] font-bold uppercase text-slate-300">
+                                             T-Minus <span className={`text-lg font-black font-mono mx-1 ${colors.text}`}>{notif.minutesUntil}</span> MIN
+                                         </span>
+                                     </div>
+                                     <button 
+                                        onClick={() => setActiveNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                                        className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-colors"
+                                     >
+                                         <X className="w-4 h-4" />
+                                     </button>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+
+                     {/* PROGRESS BAR LOADER */}
+                     <div className="relative h-1 w-full bg-black/50">
+                         <div 
+                            className={`h-full ${colors.bar} shadow-[0_0_10px_currentColor] transition-all duration-1000 ease-linear relative overflow-hidden`}
+                            style={{ width: `${notif.progress}%` }}
+                         >
+                            <div className="absolute inset-0 bg-white/50 w-full h-full animate-shimmer" />
+                         </div>
+                     </div>
+                 </div>
+                 
+                 {/* DECORATIVE GLOW UNDERNEATH */}
+                 {isCritical && <div className="absolute -inset-4 bg-red-500/20 blur-2xl -z-10 animate-pulse" />}
+             </div>
+           );
+       })}
     </div>
   );
 };
