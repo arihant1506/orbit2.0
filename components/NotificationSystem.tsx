@@ -48,6 +48,38 @@ const getWaterSlots = (dailyGoal: number) => {
     return slots;
 };
 
+// --- SYSTEM NOTIFICATION TRIGGER ---
+const sendSystemNotification = async (title: string, body: string, tag: string) => {
+    if (Notification.permission === 'granted') {
+        try {
+            // Try Service Worker first (Best for Mobile Background)
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.showNotification) {
+                    await reg.showNotification(title, {
+                        body,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png', // Generic Planet Icon
+                        badge: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        tag: tag,
+                        renotify: true,
+                        requireInteraction: true // Keeps it in system tray until interaction
+                    } as any);
+                    return;
+                }
+            }
+            // Fallback for Desktop/Non-SW
+            new Notification(title, { 
+                body, 
+                icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
+                tag 
+            });
+        } catch (e) {
+            console.error("Notification failed", e);
+        }
+    }
+};
+
 // --- SOUND FX ---
 const playAlert = () => {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -98,7 +130,6 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
             // Trigger window: 0 to 20 mins before
             if (diff > 0 && diff <= LOOKAHEAD_MINUTES) {
                 const uniqueId = `task-${dayName}-${task.id}`;
-                // Calculate progress (0% at 20mins out, 100% at 0mins)
                 const progress = Math.min(100, Math.max(0, ((LOOKAHEAD_MINUTES - diff) / LOOKAHEAD_MINUTES) * 100));
                 
                 newNotifications.push({
@@ -115,6 +146,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
                 // Sound logic (play once when it first enters the window)
                 if (!notifiedRef.current.has(uniqueId)) {
                     playAlert();
+                    sendSystemNotification(
+                        `PROTOCOL: ${task.title}`, 
+                        `Time: ${task.timeRange.split('-')[0].trim()} | Starting in ${diff} minutes`,
+                        uniqueId
+                    );
                     notifiedRef.current.add(uniqueId);
                 }
             }
@@ -144,6 +180,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
 
                 if (!notifiedRef.current.has(uniqueId)) {
                     playAlert();
+                    sendSystemNotification(
+                        `ACADEMIC ALERT: ${cls.subject}`, 
+                        `Venue: ${cls.venue} | Starting in ${diff} minutes`,
+                        uniqueId
+                    );
                     notifiedRef.current.add(uniqueId);
                 }
             }
@@ -176,6 +217,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
 
                          if (!notifiedRef.current.has(uniqueId)) {
                              playAlert();
+                             sendSystemNotification(
+                                 `HYDRATION REMINDER`, 
+                                 `${slot.label} due at ${slot.time}`,
+                                 uniqueId
+                             );
                              notifiedRef.current.add(uniqueId);
                          }
                      }
