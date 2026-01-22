@@ -5,6 +5,7 @@ import { WeeklyReport } from './components/WeeklyReport';
 import { AdminView } from './components/AdminView';
 import { AcademicView } from './components/AcademicView';
 import { WaterTracker } from './components/WaterTracker';
+import { NotificationSystem } from './components/NotificationSystem'; // NEW IMPORT
 import { Auth } from './components/Auth';
 import { INITIAL_SCHEDULE, UNI_SCHEDULE } from './constants';
 import { WeekSchedule, ThemeMode, Category, UserProfile, ScheduleSlot, WeeklyStats, WaterConfig, UniversitySchedule, ClassSession } from './types';
@@ -21,8 +22,6 @@ const getMondayOfCurrentWeek = () => {
   return monday.toISOString();
 };
 
-// --- HELPERS FOR NOTIFICATIONS ---
-
 // Parse "07:30 AM" or "07:30 AM - 08:00 AM" to minutes
 const parseTime = (str: string): number => {
   if (!str) return -1;
@@ -34,40 +33,6 @@ const parseTime = (str: string): number => {
   if (p.toUpperCase() === 'PM' && hours !== 12) hours += 12;
   if (p.toUpperCase() === 'AM' && hours === 12) hours = 0;
   return hours * 60 + parseInt(m);
-};
-
-// Generate ASCII Progress Bar
-const getProgressBar = (percentage: number) => {
-  const bars = Math.floor(percentage / 10);
-  return '▓'.repeat(bars) + '░'.repeat(10 - bars);
-};
-
-// Replicate Water Tracker Logic for background checks
-const generateWaterSlots = (dailyGoal: number) => {
-    const glassSize = 0.5; 
-    const totalSlotsNeeded = Math.ceil(dailyGoal / glassSize);
-    const slots = [];
-    
-    // Slot 1: Fixed
-    slots.push({ time: '07:30 AM', label: 'CORTISOL FLUSH', amount: 0.5 });
-    
-    const remaining = totalSlotsNeeded - 1;
-    if (remaining <= 0) return slots;
-
-    const startMin = 9 * 60; // 9 AM
-    const endMin = 21 * 60;  // 9 PM
-    const interval = (endMin - startMin) / remaining;
-
-    for (let i = 0; i < remaining; i++) {
-       const minutes = Math.floor(startMin + (i * interval));
-       const h = Math.floor(minutes / 60);
-       const m = minutes % 60;
-       const ampm = h >= 12 ? 'PM' : 'AM';
-       const dispH = h > 12 ? h - 12 : (h === 0 || h === 24 ? 12 : h);
-       const timeStr = `${dispH}:${m.toString().padStart(2, '0')} ${ampm}`;
-       slots.push({ time: timeStr, label: 'HYDRATE', amount: 0.5 });
-    }
-    return slots;
 };
 
 // --- MOBILE HUD COMPONENT ---
@@ -448,7 +413,7 @@ const App: React.FC = () => {
   
   // Notification State
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
-  const notifiedRef = useRef<Set<string>>(new Set());
+  // Removed old ref since NotificationSystem handles it now
 
   useEffect(() => { setIsClient(true); }, []);
 
@@ -510,73 +475,6 @@ const App: React.FC = () => {
     }
     localStorage.setItem('orbit_theme', theme);
   }, [theme]);
-
-  // --- NOTIFICATION ENGINE ---
-  useEffect(() => {
-    if (notificationPermission !== 'granted' || !currentUser || !users[currentUser]) return;
-
-    const checkNotifications = () => {
-       const now = new Date();
-       const currentMinutes = now.getHours() * 60 + now.getMinutes();
-       
-       // Real-time day derivation
-       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-       const todayName = days[now.getDay()];
-       
-       const user = users[currentUser];
-       if (!user) return;
-
-       // 1. SCHEDULE ALERTS & PROGRESS
-       const todaySlots = user.schedule[todayName] || [];
-       const completed = todaySlots.filter(s => s.isCompleted).length;
-       const total = todaySlots.length;
-       const percent = total > 0 ? Math.round((completed/total)*100) : 0;
-       
-       todaySlots.forEach(slot => {
-           if (slot.isCompleted) return;
-           const startMin = parseTime(slot.timeRange);
-           if (startMin === -1) return;
-
-           const diff = startMin - currentMinutes;
-           // Notify 10 minutes before, or exactly at time
-           if ((diff === 10 || diff === 0) && !notifiedRef.current.has(`${todayName}-${slot.id}-${diff}`)) {
-               const progressBar = getProgressBar(percent);
-               new Notification(`ORBIT: ${slot.title}`, {
-                  body: `Starts in ${diff} min.\nProgress: [${progressBar}] ${percent}%`,
-                  icon: '/icon.png' // Fallback
-               });
-               notifiedRef.current.add(`${todayName}-${slot.id}-${diff}`);
-           }
-       });
-
-       // 2. WATER REMINDERS
-       if (user.waterConfig) {
-          const waterSlots = generateWaterSlots(user.waterConfig.dailyGoal);
-          waterSlots.forEach((ws, idx) => {
-              const wsMin = parseTime(ws.time);
-              // Notify if within 1 minute of target time and not completed (simple check since we don't track completion in this hook easily, we assume reminder is helpful regardless)
-              const diff = Math.abs(wsMin - currentMinutes);
-              const notificationKey = `water-${todayName}-${idx}`;
-              
-              if (diff <= 1 && !notifiedRef.current.has(notificationKey)) {
-                  // Check if already done? 
-                  // For now, simpler to just remind if it's the time.
-                  const isDone = user.waterConfig?.progress.includes(`water-${idx}`) || (idx === 0 && user.waterConfig?.progress.includes('water-wake'));
-                  
-                  if (!isDone) {
-                     new Notification(`HYDRATION ALERT`, {
-                        body: `Time for ${ws.label} (${ws.amount}L)\nStay optimized.`,
-                     });
-                     notifiedRef.current.add(notificationKey);
-                  }
-              }
-          });
-       }
-    };
-
-    const interval = setInterval(checkNotifications, 30000); // Check every 30s
-    return () => clearInterval(interval);
-  }, [notificationPermission, currentUser, users]);
 
   const requestNotificationPermission = async () => {
     const permission = await Notification.requestPermission();
@@ -798,9 +696,21 @@ const App: React.FC = () => {
   const currentDayName = DAYS_OF_WEEK[currentDayIndex];
   const currentSlots = userProfile.schedule[currentDayName] || [];
   const currentAcademicSchedule = userProfile.academicSchedule || {};
+  const currentDayString = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
     <div key="main-app" className="relative min-h-screen bg-orbit-lightBg dark:bg-orbit-bg font-sans text-slate-800 dark:text-slate-200 transition-colors duration-500 overflow-x-hidden animate-tech-reveal">
+      
+      {/* INTEGRATED NOTIFICATION SYSTEM */}
+      {currentUser && (
+        <NotificationSystem 
+          schedule={userProfile.schedule} 
+          academicSchedule={currentAcademicSchedule} 
+          waterConfig={userProfile.waterConfig} 
+          dayName={currentDayString}
+        />
+      )}
+
       {/* COMPACT MOBILE NAV */}
       <nav className="sticky top-0 z-50 backdrop-blur-3xl border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-slate-950/80 px-4 py-3 sm:px-6 sm:py-5 mb-4 sm:mb-8 transition-all">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">

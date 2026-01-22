@@ -384,35 +384,79 @@ const checkIsActive = (timeRange: string): boolean => {
 
 // --- CUSTOM TIME SCROLLER COMPONENT ---
 const TimeWheel = ({ value, onChange, max, label }: { value: number, onChange: (v: number) => void, max: number, label: string }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const ITEM_HEIGHT = 32; // h-8 = 32px
+
+  // Initial scroll positioning
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = value * ITEM_HEIGHT;
+    }
+  }, []); // Run once on mount
+
+  // Sync scroll if prop changes externally (re-open modal etc)
+  useEffect(() => {
+    if (containerRef.current) {
+      const current = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
+      if (current !== value) {
+         containerRef.current.scrollTo({ top: value * ITEM_HEIGHT, behavior: 'smooth' });
+      }
+    }
+  }, [value]);
+
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+     const target = e.currentTarget;
+     const index = Math.round(target.scrollTop / ITEM_HEIGHT);
+     
+     // Only trigger if changed and within bounds
+     if (index !== value && index >= 0 && index < max) {
+        onChange(index);
+        playSound('tick');
+        // Haptic feedback for mobile
+        if (navigator.vibrate) navigator.vibrate(10);
+     }
+  };
+
   return (
-    <div className="flex flex-col items-center">
-      <span className="text-[9px] text-slate-500 font-mono uppercase mb-1">{label}</span>
-      <div className="h-24 w-12 bg-slate-100 dark:bg-slate-900 rounded-xl overflow-y-scroll no-scrollbar snap-y snap-mandatory relative border border-slate-200 dark:border-slate-700/50"
-           onScroll={(e) => {
-             const target = e.currentTarget;
-             const itemHeight = 32; // h-8
-             const index = Math.round(target.scrollTop / itemHeight);
-             if (index !== value) {
-               // Debounce or only trigger on significant change if needed, 
-               // but for simple UI we can just calculate on click/snap
-             }
-           }}
-      >
-        <div className="h-8" /> {/* Spacer */}
-        {Array.from({ length: max }).map((_, i) => {
-          const displayVal = label === 'MIN' ? i.toString().padStart(2, '0') : (i === 0 ? 12 : i);
-          const isSelected = value === i;
-          return (
-             <div 
-               key={i} 
-               onClick={() => { onChange(i); playSound('tick'); }}
-               className={`h-8 flex items-center justify-center snap-center cursor-pointer transition-all ${isSelected ? 'font-bold text-cyan-500 scale-110' : 'text-slate-400 text-xs'}`}
-             >
-               {displayVal}
-             </div>
-          )
-        })}
-        <div className="h-8" /> {/* Spacer */}
+    <div className="flex flex-col items-center group relative w-16 select-none">
+      <span className="text-[9px] text-slate-500 font-mono uppercase mb-2 font-bold tracking-wider">{label}</span>
+      
+      <div className="relative h-24 w-full">
+         {/* Center Highlight Bar (Fixed) */}
+         <div className="absolute top-[32px] left-0 right-0 h-8 bg-cyan-500/10 border-y border-cyan-500/30 rounded-sm pointer-events-none z-0" />
+         
+         {/* Gradient Masks for 3D effect */}
+         <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-slate-50 dark:from-slate-950 to-transparent pointer-events-none z-20" />
+         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-50 dark:from-slate-950 to-transparent pointer-events-none z-20" />
+
+         {/* Scrollable Container */}
+         <div 
+           ref={containerRef}
+           className="absolute inset-0 overflow-y-auto no-scrollbar snap-y snap-mandatory z-10 py-8"
+           onScroll={onScroll}
+         >
+           {Array.from({ length: max }).map((_, i) => {
+             const displayVal = label === 'MIN' ? i.toString().padStart(2, '0') : (i === 0 ? 12 : i);
+             const isSelected = value === i;
+             return (
+                <div 
+                  key={i} 
+                  onClick={() => {
+                     onChange(i);
+                     containerRef.current?.scrollTo({ top: i * ITEM_HEIGHT, behavior: 'smooth' });
+                     playSound('tick');
+                  }}
+                  className={`h-8 flex items-center justify-center snap-center cursor-pointer transition-all duration-200 ${
+                     isSelected 
+                       ? 'font-black text-cyan-500 text-lg scale-110 drop-shadow-[0_0_5px_rgba(6,182,212,0.5)]' 
+                       : 'text-slate-400 text-xs opacity-40 hover:opacity-70'
+                  }`}
+                >
+                  {displayVal}
+                </div>
+             )
+           })}
+         </div>
       </div>
     </div>
   );
@@ -836,25 +880,25 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                 <div className="space-y-6 relative z-10">
                     {/* Time Scrollers */}
                     <div className="bg-slate-50 dark:bg-black/50 border border-slate-200 dark:border-white/5 rounded-2xl p-4">
-                       <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 block text-center">Temporal Settings</label>
-                       <div className="flex items-center justify-center gap-4">
+                       <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 block text-center">Temporal Settings</label>
+                       <div className="flex items-center justify-center gap-6">
                           {/* Start Time */}
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
                              <TimeWheel value={sHour} onChange={setSHour} max={12} label="HR" />
                              <TimeWheel value={sMin} onChange={setSMin} max={60} label="MIN" />
-                             <div className="flex flex-col gap-2 mt-4">
-                                <button onClick={() => {setSAmpm('AM'); playSound('tick');}} className={`text-[10px] font-bold ${sAmpm === 'AM' ? 'text-cyan-500' : 'text-slate-500'}`}>AM</button>
-                                <button onClick={() => {setSAmpm('PM'); playSound('tick');}} className={`text-[10px] font-bold ${sAmpm === 'PM' ? 'text-cyan-500' : 'text-slate-500'}`}>PM</button>
+                             <div className="flex flex-col gap-2 justify-center ml-2">
+                                <button onClick={() => {setSAmpm('AM'); playSound('tick');}} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${sAmpm === 'AM' ? 'bg-cyan-500 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>AM</button>
+                                <button onClick={() => {setSAmpm('PM'); playSound('tick');}} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${sAmpm === 'PM' ? 'bg-cyan-500 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>PM</button>
                              </div>
                           </div>
-                          <div className="text-slate-300 dark:text-slate-600 font-black">-</div>
+                          <div className="text-slate-300 dark:text-slate-600 font-black text-xl">-</div>
                           {/* End Time */}
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
                              <TimeWheel value={eHour} onChange={setEHour} max={12} label="HR" />
                              <TimeWheel value={eMin} onChange={setEMin} max={60} label="MIN" />
-                             <div className="flex flex-col gap-2 mt-4">
-                                <button onClick={() => {setEAmpm('AM'); playSound('tick');}} className={`text-[10px] font-bold ${eAmpm === 'AM' ? 'text-cyan-500' : 'text-slate-500'}`}>AM</button>
-                                <button onClick={() => {setEAmpm('PM'); playSound('tick');}} className={`text-[10px] font-bold ${eAmpm === 'PM' ? 'text-cyan-500' : 'text-slate-500'}`}>PM</button>
+                             <div className="flex flex-col gap-2 justify-center ml-2">
+                                <button onClick={() => {setEAmpm('AM'); playSound('tick');}} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${eAmpm === 'AM' ? 'bg-cyan-500 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>AM</button>
+                                <button onClick={() => {setEAmpm('PM'); playSound('tick');}} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${eAmpm === 'PM' ? 'bg-cyan-500 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>PM</button>
                              </div>
                           </div>
                        </div>

@@ -65,3 +65,14 @@ export interface WaterConfig {
   lastDate: string; // To reset daily
   progress: string[]; // Array of completed time slot IDs
 }
+
+export interface OrbitNotification {
+  id: string;
+  type: 'task' | 'class' | 'water';
+  title: string;
+  subtitle: string;
+  startTimeStr: string; // "10:00 AM"
+  minutesUntil: number; // For sorting/priority
+  progress: number; // 0 to 100 (How close to starting)
+  accentColor: string;
+}
