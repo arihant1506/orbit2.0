@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { WaterConfig } from '../types';
 import { Droplet, Settings, Check, CloudRain, Trophy, ArrowRight, Dna, Brain, Moon, Sun, Thermometer, Wind, MapPin, Loader2, AlertTriangle, Activity, RefreshCw } from 'lucide-react';
+import { LiquidSlider } from './LiquidSlider';
+import { playOrbitSound } from '../utils/audio';
 
 interface WaterTrackerProps {
   userConfig?: WaterConfig;
@@ -18,60 +20,6 @@ interface WeatherData {
   loading: boolean;
   error?: string;
 }
-
-// Sound Utility
-const playWaterSound = (type: 'drop' | 'splash' | 'win') => {
-  const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContext) return;
-  const ctx = new AudioContext();
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  const filter = ctx.createBiquadFilter();
-
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(ctx.destination);
-
-  if (type === 'drop') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(600, t);
-    osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-    osc.start(t);
-    osc.stop(t + 0.1);
-  } else if (type === 'splash') {
-    const noise = ctx.createBufferSource();
-    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < ctx.sampleRate * 0.5; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.setValueAtTime(1000, t);
-    noiseFilter.frequency.linearRampToValueAtTime(100, t + 0.2);
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.05, t);
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noise.start(t);
-  } else if (type === 'win') {
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(50, t);
-    osc.frequency.linearRampToValueAtTime(100, t + 5);
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(200, t);
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.linearRampToValueAtTime(0, t + 5);
-    osc.start(t);
-    osc.stop(t + 5);
-  }
-};
 
 export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveConfig, username }) => {
   // Config State
@@ -132,6 +80,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
 
   // --- 1. WEATHER & ADAPTIVE LOGIC ---
   const refreshWeather = () => {
+    playOrbitSound('click');
     setWeather(prev => ({ ...prev, loading: true, error: undefined }));
     
     if (!navigator.geolocation) {
@@ -238,7 +187,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
 
   useEffect(() => {
     if (percentage === 100 && !isCelebrating) {
-      playWaterSound('win');
+      playOrbitSound('success_chord');
       setIsCelebrating(true);
       setTimeout(() => setIsCelebrating(false), 8000);
     }
@@ -249,12 +198,13 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
       const newProg = progress.filter(p => p !== id);
       setProgress(newProg);
       save(newProg);
+      playOrbitSound('liquid_deactivate');
     } else {
       setActiveDrop(true);
-      playWaterSound('drop');
+      playOrbitSound('click'); // Trigger drop
       setTimeout(() => {
          setActiveDrop(false);
-         playWaterSound('splash');
+         playOrbitSound('water_splash');
          const newProg = [...progress, id];
          setProgress(newProg);
          save(newProg);
@@ -273,6 +223,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
 
   const handleConfigSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    playOrbitSound('success_chord');
     setShowConfig(false);
     save([]);
   };
@@ -319,12 +270,15 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
                       <label className="text-[10px] font-bold font-mono text-slate-400 uppercase tracking-[0.2em]">
                           Manual Override
                        </label>
-                       <span className="text-xl font-black italic text-slate-700 dark:text-slate-300">{goal}L</span>
                    </div>
-                   <input 
-                      type="range" min="2" max="6" step="0.5" 
-                      value={goal} onChange={(e) => setGoal(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                   <LiquidSlider 
+                      value={goal} 
+                      onChange={setGoal} 
+                      min={2} 
+                      max={6} 
+                      step={0.5} 
+                      unit="L" 
+                      label="TARGET GOAL" 
                    />
                 </div>
 
@@ -390,7 +344,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveCo
                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-300 ${weather.loading ? 'animate-spin' : ''}`} />
                    <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider hidden sm:inline">Refresh</span>
                 </button>
-                <button onClick={() => setShowConfig(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => { setShowConfig(true); playOrbitSound('click'); }} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
                    <Settings className="w-5 h-5 text-slate-400" />
                 </button>
             </div>

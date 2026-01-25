@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -34,7 +33,9 @@
               'spin-slow': 'spin 12s linear infinite',
               'spin-slower': 'spin 20s linear infinite',
               'spin-fast': 'spin 3s linear infinite',
-              'float': 'float 6s ease-in-out infinite',
+              'float-slow': 'float 8s ease-in-out infinite',
+              'float-medium': 'float 6s ease-in-out infinite',
+              'float-fast': 'float 4s ease-in-out infinite',
               'cyber-glitch': 'glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both',
               'impulse': 'impulse 0.5s cubic-bezier(0.4, 0, 0.2, 1) both',
               'chromatic-wipe': 'chromatic 0.6s ease-in-out both',
@@ -70,7 +71,7 @@
               },
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
+                '50%': { transform: 'translateY(-12px)' },
               },
               rotate: {
                 '0%': { transform: 'rotate(0deg)' },
@@ -119,7 +120,7 @@
         overflow-x: hidden;
       }
       
-      /* Noise Overlay */
+      /* Noise Overlay for Texture */
       body::after {
         content: "";
         position: fixed;
@@ -150,56 +151,48 @@
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
       }
 
-      .glass-panel-high {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.01));
-        backdrop-filter: blur(40px);
-        -webkit-backdrop-filter: blur(40px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-top: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      /* Premium Float Glass - Enhanced visibility */
+      .floating-glass {
+        background: rgba(5, 5, 10, 0.5); /* Darker background for contrast */
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 
+          0 25px 50px -12px rgba(0, 0, 0, 0.6),
+          0 0 0 1px rgba(0,0,0,0.2),
+          inset 0 0 30px rgba(255,255,255,0.02);
       }
 
       /* Premium Fluid Liquid Glass */
       .liquid-glass {
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-        background-size: 200% 200%;
-        animation: liquidFlow 10s ease infinite;
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+        backdrop-filter: blur(40px) brightness(1.1);
+        -webkit-backdrop-filter: blur(40px) brightness(1.1);
         border: 1px solid rgba(255, 255, 255, 0.15);
-        border-top: 1px solid rgba(255, 255, 255, 0.3);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
         box-shadow: 
-          0 15px 40px 0 rgba(0, 0, 0, 0.4), 
-          inset 0 0 20px rgba(255,255,255,0.03),
-          inset 0 1px 0 rgba(255,255,255,0.2);
-        position: relative;
+          0 20px 40px 0 rgba(0, 0, 0, 0.4), 
+          inset 0 0 20px rgba(255,255,255,0.03);
       }
       
-      .liquid-glass::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 1px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent 40%, rgba(255,255,255,0.05));
-        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        pointer-events: none;
-      }
+      /* Independent Float Animations */
+      .float-delay-1 { animation-delay: 0.5s; }
+      .float-delay-2 { animation-delay: 1.0s; }
+      .float-delay-3 { animation-delay: 1.5s; }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "recharts": "https://esm.sh/recharts@^3.6.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.1"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+    "framer-motion": "https://esm.sh/framer-motion@10.16.16?external=react,react-dom",
+    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@4.2.0?external=react,react-dom",
+    "vite": "https://esm.sh/vite@5.0.0"
   }
 }
 </script>

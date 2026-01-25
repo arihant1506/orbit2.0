@@ -1,4 +1,3 @@
-
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
 export type Category = 'Physical' | 'Academic' | 'Coding' | 'Creative' | 'Rest' | 'Logistics';
@@ -43,15 +42,28 @@ export interface WeeklyStats {
   dateRange: string;
 }
 
+export interface UserPreferences {
+  theme: ThemeMode;
+  startOfWeek: 'Monday' | 'Sunday';
+  timeFormat: '12h' | '24h';
+  notifications: {
+    dailyReminder: boolean;
+    taskAlerts: boolean;
+  };
+}
+
 export interface UserProfile {
   username: string;
   password?: string;
+  email?: string;       // New: For profile identity
+  avatar?: string;      // New: Profile picture URL/Base64
   joinedDate: string;
   schedule: WeekSchedule;
-  academicSchedule: UniversitySchedule; // Added this field
+  academicSchedule: UniversitySchedule; 
   lastResetDate?: string; 
   lastWeekStats?: WeeklyStats;
   waterConfig?: WaterConfig;
+  preferences?: UserPreferences; // New: Local settings
 }
 
 export interface AuthState {

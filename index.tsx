@@ -1,7 +1,6 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { App } from './App';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,12 +10,39 @@ if (!rootElement) {
 // Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    // Check if the environment supports Service Workers (HTTP/HTTPS only)
+    if (!window.location.protocol.startsWith('http')) {
+      return; 
+    }
+
+    let swUrl = './sw.js';
+    
+    try {
+      // 1. Try to construct an absolute URL based on window.location
+      // This fixes "origin mismatch" issues in preview environments where <base> tags might be present.
+      swUrl = new URL('./sw.js', window.location.href).href;
+    } catch (e) {
+      // 2. Fallback: If window.location.href is invalid (e.g. 'about:blank'), 
+      // we default back to the relative string './sw.js'.
+      swUrl = './sw.js';
+    }
+
+    navigator.serviceWorker.register(swUrl)
       .then(registration => {
         console.log('SW registered: ', registration);
       })
       .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
+        // Gracefully handle common errors in cloud IDEs / preview environments
+        const msg = registrationError?.message || '';
+        if (
+          msg.toLowerCase().includes('origin') || 
+          msg.toLowerCase().includes('mismatch') || 
+          msg.toLowerCase().includes('scripturl')
+        ) {
+          console.debug('Service Worker skipped: Environment origin restriction.');
+        } else {
+          console.error('SW registration failed: ', registrationError);
+        }
       });
   });
 }

@@ -1,42 +1,11 @@
 
 import React, { useState } from 'react';
 import { Radio, Zap, Shield, Key, ArrowRight, User, Crown, Lock, Rocket } from 'lucide-react';
+import { playOrbitSound } from '../utils/audio';
 
 interface AuthProps {
   onAuthSuccess: (username: string, password?: string) => void;
 }
-
-// Sound Helper
-const playAuthSound = (type: 'type' | 'success' | 'error') => {
-  const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContext) return;
-  const ctx = new AudioContext();
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-
-  if (type === 'success') {
-    // Access Granted Sound
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(220, t);
-    osc.frequency.exponentialRampToValueAtTime(880, t + 0.2);
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-    osc.start(t);
-    osc.stop(t + 0.4);
-  } else if (type === 'error') {
-    // Access Denied
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(150, t);
-    osc.frequency.linearRampToValueAtTime(100, t + 0.2);
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.linearRampToValueAtTime(0.01, t + 0.3);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  }
-};
 
 export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   // Owner State
@@ -53,10 +22,10 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     e.preventDefault();
     if (ownerPass === '12345678') {
       setOwnerError('');
-      playAuthSound('success');
+      playOrbitSound('power_up');
       onAuthSuccess('arihant', ownerPass);
     } else {
-      playAuthSound('error');
+      playOrbitSound('error');
       setOwnerError('INVALID MASTER KEY');
     }
   };
@@ -65,16 +34,16 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     e.preventDefault();
     if (userName.trim().length < 3) {
       setUserError('USERNAME TOO SHORT');
-      playAuthSound('error');
+      playOrbitSound('error');
       return;
     }
     if (userPass.length < 6) {
       setUserError('PASSWORD MIN 6 CHARS');
-      playAuthSound('error');
+      playOrbitSound('error');
       return;
     }
     setUserError('');
-    playAuthSound('success');
+    playOrbitSound('power_up');
     onAuthSuccess(userName.trim().toLowerCase(), userPass);
   };
 
@@ -215,7 +184,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
               <button
                 type="button"
-                onClick={() => setIsRegistering(!isRegistering)}
+                onClick={() => { setIsRegistering(!isRegistering); playOrbitSound('click'); }}
                 className="w-full text-[8px] sm:text-[9px] font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 uppercase tracking-widest transition-colors mt-2"
               >
                 {isRegistering ? 'Have an account? Login' : 'First deployment? Register Identity'}
