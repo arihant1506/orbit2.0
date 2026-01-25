@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { UserProfile, ThemeMode } from '../types';
 import { User, Mail, Lock, Shield, Moon, Sun, Monitor, Bell, Calendar, Download, RefreshCw, Trash2, LogOut, ChevronRight, Check, AlertTriangle, Smartphone, Globe, Code, LayoutGrid, X, Palette, Sparkles, Bot, Key } from 'lucide-react';
@@ -43,7 +44,7 @@ const AvatarSelectorModal = ({ isOpen, onClose, onSelect, currentAvatar }: { isO
                initial={{ scale: 0.95, opacity: 0, y: 20 }}
                animate={{ scale: 1, opacity: 1, y: 0 }}
                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-               onClick={(e) => e.stopPropagation()}
+               onClick={(e: React.MouseEvent) => e.stopPropagation()}
                className="w-full max-w-5xl bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-[0_0_60px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col h-full max-h-[85vh] relative group ring-1 ring-white/5"
              >
                   {/* Cinematic Background FX */}
@@ -177,7 +178,7 @@ const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: bool
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
-            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl relative overflow-hidden">
+            <div onClick={(e: React.MouseEvent) => e.stopPropagation()} className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none" />
                 
                 <div className="p-6 sm:p-8 relative z-10">

@@ -91,7 +91,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
             className="absolute inset-0 bg-cyan-400/30 rounded-[inherit] blur-[3px] mix-blend-screen" 
          />
          <motion.div 
-            style={{ x: useTransform(rgbShift, v => -v), opacity: rgbOpacity }}
+            style={{ x: useTransform(rgbShift, (v: number) => -v), opacity: rgbOpacity }}
             className="absolute inset-0 bg-fuchsia-500/30 rounded-[inherit] blur-[3px] mix-blend-screen" 
          />
 

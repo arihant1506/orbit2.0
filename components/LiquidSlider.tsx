@@ -74,7 +74,7 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
     }
   };
 
-  const backgroundWidth = useTransform(xSpring, (current) => current + 24);
+  const backgroundWidth = useTransform(xSpring, (current: number) => current + 24);
 
   return (
     <div className="w-full flex flex-col gap-2 mb-4 select-none touch-none">

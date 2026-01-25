@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
-import { Radio, Zap, Shield, Key, ArrowRight, User, Crown, Lock, Rocket } from 'lucide-react';
+import { Radio, Zap, Shield, Key, ArrowRight, User, Crown, Lock, Rocket, Loader2 } from 'lucide-react';
 import { playOrbitSound } from '../utils/audio';
 
 interface AuthProps {
   onAuthSuccess: (username: string, password?: string) => void;
+  isSyncing?: boolean;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
+export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, isSyncing = false }) => {
   // Owner State
   const [ownerPass, setOwnerPass] = useState('');
   const [ownerError, setOwnerError] = useState('');
@@ -112,10 +113,17 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
               <button
                 type="submit"
-                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black italic tracking-tighter uppercase py-2.5 sm:py-3 rounded-xl transition-all flex items-center justify-center gap-2 group/btn text-xs sm:text-sm"
+                disabled={isSyncing}
+                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black italic tracking-tighter uppercase py-2.5 sm:py-3 rounded-xl transition-all flex items-center justify-center gap-2 group/btn text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Launch Admin Mode
-                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                {isSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Launch Admin Mode
+                    <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -176,14 +184,22 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
               <button
                 type="submit"
-                className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black italic tracking-tighter uppercase py-2.5 sm:py-3 rounded-xl transition-all flex items-center justify-center gap-2 group/btn text-xs sm:text-sm"
+                disabled={isSyncing}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black italic tracking-tighter uppercase py-2.5 sm:py-3 rounded-xl transition-all flex items-center justify-center gap-2 group/btn text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isRegistering ? 'Initialize Pilot' : 'Sync Interface'}
-                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                {isSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    {isRegistering ? 'Initialize Pilot' : 'Sync Interface'}
+                    <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
 
               <button
                 type="button"
+                disabled={isSyncing}
                 onClick={() => { setIsRegistering(!isRegistering); playOrbitSound('click'); }}
                 className="w-full text-[8px] sm:text-[9px] font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 uppercase tracking-widest transition-colors mt-2"
               >
