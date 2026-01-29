@@ -1,3 +1,4 @@
+
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
 export type Category = 'Physical' | 'Academic' | 'Coding' | 'Creative' | 'Rest' | 'Logistics';
@@ -5,6 +6,18 @@ export type Category = 'Physical' | 'Academic' | 'Coding' | 'Creative' | 'Rest' 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
 export type ClassType = 'Lecture' | 'Lab' | 'Tutorial';
+
+export type Priority = 'low' | 'medium' | 'high';
+
+export interface NoteItem {
+  id: string;
+  title: string;
+  content: string;
+  isCompleted: boolean;
+  priority: Priority;
+  createdAt: string;
+  tags?: string[];
+}
 
 export interface ScheduleSlot {
   id: string;
@@ -42,14 +55,17 @@ export interface WeeklyStats {
   dateRange: string;
 }
 
+export interface NotificationPreferences {
+  water: boolean;
+  schedule: boolean;
+  academic: boolean;
+}
+
 export interface UserPreferences {
   theme: ThemeMode;
   startOfWeek: 'Monday' | 'Sunday';
   timeFormat: '12h' | '24h';
-  notifications: {
-    dailyReminder: boolean;
-    taskAlerts: boolean;
-  };
+  notifications: NotificationPreferences;
 }
 
 export interface UserProfile {
@@ -60,6 +76,7 @@ export interface UserProfile {
   joinedDate: string;
   schedule: WeekSchedule;
   academicSchedule: UniversitySchedule; 
+  notes?: NoteItem[];   // New: Notes array
   lastResetDate?: string; 
   lastWeekStats?: WeeklyStats;
   waterConfig?: WaterConfig;

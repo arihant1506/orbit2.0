@@ -7,9 +7,10 @@ interface AdminViewProps {
   users: Record<string, UserProfile> | UserProfile[]; // Can be object (local) or array (cloud)
   onResetUser?: (username: string) => void;
   onDeleteUser?: (username: string) => void;
+  onRefresh?: () => void;
 }
 
-export const AdminView: React.FC<AdminViewProps> = ({ users, onResetUser, onDeleteUser }) => {
+export const AdminView: React.FC<AdminViewProps> = ({ users, onResetUser, onDeleteUser, onRefresh }) => {
   // Normalize input: Convert to array if it's the local storage object, or use array directly if from cloud
   const userList = Array.isArray(users) 
     ? users 
@@ -38,15 +39,28 @@ export const AdminView: React.FC<AdminViewProps> = ({ users, onResetUser, onDele
         </div>
         
         <div className="relative z-10">
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-mono text-[10px] uppercase tracking-[0.4em] mb-3">
-             <Activity className="w-3 h-3" /> Master Command Dashboard
+          <div className="flex justify-between items-start">
+              <div>
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-mono text-[10px] uppercase tracking-[0.4em] mb-3">
+                     <Activity className="w-3 h-3" /> Master Command Dashboard
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase font-sans mb-2">
+                    PILOT <span className="text-amber-500">DIRECTORY</span>
+                  </h2>
+                  <p className="text-xs font-mono text-amber-700/60 dark:text-amber-500/60 uppercase tracking-widest max-w-md">
+                    Monitoring {sortedUsers.length} active neural links across the Global Network.
+                  </p>
+              </div>
+              {onRefresh && (
+                  <button 
+                    onClick={onRefresh}
+                    className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 shadow-lg"
+                    title="Force Refresh User List"
+                  >
+                      <RefreshCw className="w-5 h-5" />
+                  </button>
+              )}
           </div>
-          <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase font-sans mb-2">
-            PILOT <span className="text-amber-500">DIRECTORY</span>
-          </h2>
-          <p className="text-xs font-mono text-amber-700/60 dark:text-amber-500/60 uppercase tracking-widest max-w-md">
-            Monitoring {sortedUsers.length} active neural links across the Global Network.
-          </p>
         </div>
       </div>
 

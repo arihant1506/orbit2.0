@@ -1,13 +1,21 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#030014" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    
+    <!-- PWA / Mobile Web App Capability -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Orbit" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3665/3665939.png" />
+    
     <title>Orbit Routine</title>
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -19,14 +27,18 @@
             },
             colors: {
               orbit: {
-                bg: '#030014',
-                lightBg: '#f8fafc',
-                glass: 'rgba(255, 255, 255, 0.05)',
-                glassBorder: 'rgba(255, 255, 255, 0.1)',
+                bg: '#000000',
+                lightBg: '#0a0a0a',
+                glass: 'rgba(255, 255, 255, 0.03)',
+                glassBorder: 'rgba(255, 255, 255, 0.08)',
                 neonPurple: '#d946ef',
                 neonBlue: '#00f0ff',
                 neonGreen: '#39ff14',
               }
+            },
+            screens: {
+              'xs': '375px',
+              '3xl': '1600px',
             },
             animation: {
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -36,33 +48,11 @@
               'float-slow': 'float 8s ease-in-out infinite',
               'float-medium': 'float 6s ease-in-out infinite',
               'float-fast': 'float 4s ease-in-out infinite',
-              'cyber-glitch': 'glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both',
-              'impulse': 'impulse 0.5s cubic-bezier(0.4, 0, 0.2, 1) both',
-              'chromatic-wipe': 'chromatic 0.6s ease-in-out both',
-              'shimmer': 'shimmer 2.5s linear infinite',
-              'zenith-flare': 'zenithFlare 1.5s cubic-bezier(0.19, 1, 0.22, 1) both',
-              'ascension-float': 'ascensionFloat 4s ease-in-out infinite',
-              'screen-flash': 'screenFlash 0.5s ease-out both',
-              'border-revolve': 'rotate 4s linear infinite',
               'tech-reveal': 'techReveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
               'blob': 'blob 7s infinite',
-              'liquid-flow': 'liquidFlow 8s ease infinite',
-              'morph': 'morph 8s ease-in-out infinite alternate',
-              'morph-fast': 'morph 5s ease-in-out infinite alternate',
+              'shimmer': 'shimmer 2.5s linear infinite',
             },
             keyframes: {
-              morph: {
-                '0%': { borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%' },
-                '25%': { borderRadius: '45% 55% 50% 50% / 55% 45% 60% 40%' },
-                '50%': { borderRadius: '30% 60% 70% 40% / 50% 60% 30% 60%' },
-                '75%': { borderRadius: '50% 50% 20% 80% / 25% 75% 45% 55%' },
-                '100%': { borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%' }
-              },
-              liquidFlow: {
-                '0%': { backgroundPosition: '0% 50%' },
-                '50%': { backgroundPosition: '100% 50%' },
-                '100%': { backgroundPosition: '0% 50%' },
-              },
               blob: {
                 '0%': { transform: 'translate(0px, 0px) scale(1)' },
                 '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
@@ -71,34 +61,7 @@
               },
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-12px)' },
-              },
-              rotate: {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' }
-              },
-              glitch: {
-                '0%': { transform: 'translate(0)' },
-                '20%': { transform: 'translate(-3px, 3px)', filter: 'hue-rotate(90deg)' },
-                '40%': { transform: 'translate(-3px, -3px)', filter: 'contrast(2)' },
-                '60%': { transform: 'translate(3px, 3px)', filter: 'hue-rotate(-90deg)' },
-                '100%': { transform: 'translate(0)' }
-              },
-              zenithFlare: {
-                '0%': { transform: 'scale(0.5)', opacity: '0', filter: 'blur(20px) brightness(2)' },
-                '50%': { opacity: '0.8', filter: 'blur(10px) brightness(1.5)' },
-                '100%': { transform: 'scale(2)', opacity: '0', filter: 'blur(40px)' }
-              },
-              ascensionFloat: {
-                '0%': { transform: 'translateY(100vh) rotate(0deg)', opacity: '0' },
-                '20%': { opacity: '0.6' },
-                '80%': { opacity: '0.6' },
-                '100%': { transform: 'translateY(-20vh) rotate(360deg)', opacity: '0' }
-              },
-              screenFlash: {
-                '0%': { backgroundColor: 'transparent' },
-                '50%': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                '100%': { backgroundColor: 'transparent' }
+                '50%': { transform: 'translateY(-10px)' },
               },
               shimmer: {
                 '0%': { transform: 'translateX(-100%)' },
@@ -114,13 +77,26 @@
       }
     </script>
     <style>
-      body {
-        background-color: #030014;
-        color: #e2e8f0;
-        overflow-x: hidden;
+      :root {
+        color-scheme: dark;
       }
       
-      /* Noise Overlay for Texture */
+      html {
+        -webkit-tap-highlight-color: transparent;
+        scroll-behavior: smooth;
+        background-color: #000000;
+      }
+
+      body {
+        background-color: #000000;
+        color: #e2e8f0;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+      }
+      
+      /* Cinematic Noise Overlay */
       body::after {
         content: "";
         position: fixed;
@@ -128,7 +104,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
         pointer-events: none;
         z-index: 9999;
         mix-blend-mode: overlay;
@@ -140,46 +116,51 @@
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
-      /* Standard Glass */
-      .glass-panel {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-      }
-
-      /* Premium Float Glass - Enhanced visibility */
+      /* Obsidian Glass Effect - High Gloss, Deep Dark */
       .floating-glass {
-        background: rgba(5, 5, 10, 0.5); /* Darker background for contrast */
-        backdrop-filter: blur(30px) saturate(180%);
-        -webkit-backdrop-filter: blur(30px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(10, 10, 12, 0.65);
+        backdrop-filter: blur(30px) saturate(160%);
+        -webkit-backdrop-filter: blur(30px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        border-left: 1px solid rgba(255, 255, 255, 0.12);
         box-shadow: 
-          0 25px 50px -12px rgba(0, 0, 0, 0.6),
-          0 0 0 1px rgba(0,0,0,0.2),
-          inset 0 0 30px rgba(255,255,255,0.02);
+          0 25px 50px -12px rgba(0, 0, 0, 0.8),
+          0 0 0 1px rgba(0,0,0,0.5),
+          inset 0 1px 1px rgba(255,255,255,0.1),
+          inset 0 0 20px rgba(0,0,0,0.5);
       }
 
-      /* Premium Fluid Liquid Glass */
+      /* Liquid Metal Effect */
       .liquid-glass {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
-        backdrop-filter: blur(40px) brightness(1.1);
-        -webkit-backdrop-filter: blur(40px) brightness(1.1);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 100%);
+        backdrop-filter: blur(40px) brightness(1.2);
+        -webkit-backdrop-filter: blur(40px) brightness(1.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-top: 1px solid rgba(255, 255, 255, 0.25);
         box-shadow: 
-          0 20px 40px 0 rgba(0, 0, 0, 0.4), 
-          inset 0 0 20px rgba(255,255,255,0.03);
+          0 20px 40px 0 rgba(0, 0, 0, 0.6), 
+          inset 0 0 30px rgba(0,0,0,0.5);
       }
       
-      /* Independent Float Animations */
+      .glass-panel {
+        background: rgba(20, 20, 25, 0.4);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+      }
+
       .float-delay-1 { animation-delay: 0.5s; }
       .float-delay-2 { animation-delay: 1.0s; }
       .float-delay-3 { animation-delay: 1.5s; }
+      
+      ::selection {
+        background-color: rgba(6, 182, 212, 0.3);
+        color: white;
+      }
     </style>
   <script type="importmap">
 {
@@ -192,7 +173,8 @@
     "framer-motion": "https://esm.sh/framer-motion@10.16.16?external=react,react-dom",
     "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@4.2.0?external=react,react-dom",
-    "vite": "https://esm.sh/vite@5.0.0"
+    "vite": "https://esm.sh/vite@5.0.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.2"
   }
 }
 </script>

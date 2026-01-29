@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   motion, 
@@ -24,11 +23,29 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
   const [width, setWidth] = useState(0);
   const [isActive, setIsActive] = useState(false);
 
-  // Measure track width
+  // Measure track width with ResizeObserver (Robust for Device Preview)
   useEffect(() => {
-    if (constraintsRef.current) {
-      setWidth(constraintsRef.current.offsetWidth);
-    }
+    if (!constraintsRef.current) return;
+
+    const updateWidth = () => {
+        if (constraintsRef.current) {
+            setWidth(constraintsRef.current.offsetWidth);
+        }
+    };
+
+    // Initial check
+    updateWidth();
+
+    // Use ResizeObserver for reliable element resize detection
+    const observer = new ResizeObserver(() => {
+        updateWidth();
+    });
+
+    observer.observe(constraintsRef.current);
+
+    return () => {
+        observer.disconnect();
+    };
   }, []);
 
   // --- PHYSICS ENGINE ---
@@ -45,7 +62,7 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
   useEffect(() => {
     if (!isActive && width > 0) {
       const percentage = (value - min) / (max - min);
-      const thumbSize = 48; // Estimate
+      const thumbSize = 48; // Estimate matching CSS width
       const availableWidth = width - thumbSize;
       const targetX = percentage * availableWidth;
       xSpring.set(targetX);

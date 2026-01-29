@@ -1,168 +1,235 @@
 
+import { supabase } from './supabase';
 import { UserProfile } from '../types';
+import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_UNI_SCHEDULE } from '../constants';
 
-// =========================================================================
-// CUSTOM BACKEND CONFIGURATION
-// -------------------------------------------------------------------------
-// If running locally, use http://localhost:3000
-// If hosted on a VPS, use https://your-domain.com/api
-// =========================================================================
+// Helper to map usernames to emails for Supabase Auth
+const getEmail = (username: string) => `${username.toLowerCase().replace(/\s/g, '')}@orbit.local`;
 
-// Safely access env vars
-const API_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
-  ? import.meta.env.VITE_API_URL 
-  : 'http://localhost:3000';
+interface AuthResult {
+  success: boolean;
+  error?: string;
+  data?: any;
+}
 
-let authToken: string | null = localStorage.getItem('orbit_jwt');
-let isOfflineMode = false; // Flag to track connection status
-
-/**
- * Helper to check local storage for users (Fallback mechanism)
- */
-const getLocalUsers = (): Record<string, UserProfile> => {
-  try {
-    const saved = localStorage.getItem('orbit_users');
-    return saved ? JSON.parse(saved) : {};
-  } catch (e) {
-    return {};
-  }
+// Helper to sanitize Supabase errors for humans
+const mapSupabaseError = (message: string): string => {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Invalid username or password.';
+  if (m.includes('rate limit')) return 'Server busy (Rate Limit). Try again later.';
+  if (m.includes('user already registered')) return 'Username taken. Please login.';
+  if (m.includes('email not confirmed')) return 'Email confirmation required.';
+  return message;
 };
 
-/**
- * Helper to handle API requests with Offline Fallback
- */
-async function apiRequest(endpoint: string, method: 'GET' | 'POST' | 'DELETE', body?: any) {
-  // If we already detected the server is down, skip network request
-  if (isOfflineMode) return null;
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+// --- PROFILE HYDRATION & MIGRATION ---
+const hydrateProfile = (profile: UserProfile): UserProfile => {
+  const defaults = {
+    notes: [],
+    academicSchedule: JSON.parse(JSON.stringify(BLANK_UNI_SCHEDULE)),
+    preferences: { 
+        theme: 'dark' as const, 
+        startOfWeek: 'Monday' as const, 
+        timeFormat: '12h' as const, 
+        notifications: { water: true, schedule: true, academic: true }
+    },
+    waterConfig: { dailyGoal: 3, adaptiveMode: true, lastDate: new Date().toDateString(), progress: [] }
   };
 
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  const hydrated: UserProfile = {
+    ...profile,
+    notes: profile.notes || defaults.notes,
+    academicSchedule: profile.academicSchedule || defaults.academicSchedule,
+    waterConfig: profile.waterConfig || defaults.waterConfig,
+    preferences: {
+        ...defaults.preferences,
+        ...(profile.preferences || {}),
+        notifications: {
+            ...defaults.preferences.notifications,
+            ...(profile.preferences?.notifications || {})
+        }
+    }
+  };
+
+  if (hydrated.username.toLowerCase() === 'arihant') {
+      console.debug("[Hydration] Force-updating Owner Schedule from Code Constants");
+      hydrated.schedule = JSON.parse(JSON.stringify(INITIAL_SCHEDULE));
+      hydrated.academicSchedule = JSON.parse(JSON.stringify(UNI_SCHEDULE));
   }
 
-  try {
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (res.status === 401 || res.status === 403) {
-      if (res.status === 403 && endpoint.includes('admin')) {
-          console.warn("Admin access denied");
-          return null;
-      }
-      console.warn("Auth token invalid or expired");
-      localStorage.removeItem('orbit_jwt');
-      return null;
-    }
-
-    if (!res.ok) {
-      throw new Error(`API Error: ${res.statusText}`);
-    }
-
-    return await res.json();
-  } catch (e: any) {
-    // Check if it's a network connectivity error
-    if (e.name === 'TypeError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-      if (!isOfflineMode) {
-        // Use console.info or console.log to avoid scary red/yellow warnings for standard offline behavior
-        console.info(`[Orbit] Backend unavailable at ${API_URL}. Operating in Offline Mode (Local Storage).`);
-        isOfflineMode = true;
-      }
-      return null;
-    }
-    console.error(`[API] Request failed to ${endpoint}:`, e);
-    return null;
-  }
-}
+  return hydrated;
+};
 
 // --- AUTHENTICATION ---
 
-export const loginUser = async (username: string, password?: string): Promise<boolean> => {
-  if (!password) return false;
-
-  // 1. Try API
-  const data = await apiRequest('/auth/login', 'POST', { username, password });
+export const loginUser = async (username: string, password?: string): Promise<AuthResult> => {
+  if (!password) return { success: false, error: "Password required" };
   
-  if (data && data.token) {
-    authToken = data.token;
-    localStorage.setItem('orbit_jwt', data.token);
-    return true;
-  }
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: getEmail(username),
+      password
+    });
 
-  // 2. Fallback: Local Storage Check (Offline Mode)
-  if (isOfflineMode) {
-    const users = getLocalUsers();
-    const user = users[username];
-    if (user && user.password === password) {
-      console.debug(`[Offline] Login successful: ${username}`);
-      return true;
+    if (error) {
+      console.warn("Supabase Login Warning:", error.message);
+      return { success: false, error: mapSupabaseError(error.message) };
     }
+    
+    if (data.session) {
+      localStorage.setItem('orbit_jwt', data.session.access_token);
+    }
+    return { success: true, data };
+  } catch (e: any) {
+    console.error("Login Exception", e);
+    return { success: false, error: "Connection error. Check network." };
   }
-
-  return false;
 };
 
-export const registerUser = async (username: string, password?: string): Promise<boolean> => {
-    if (!password) return false;
+export const registerUser = async (username: string, password?: string): Promise<AuthResult> => {
+  if (!password) return { success: false, error: "Password required" };
 
-    // 1. Try API
-    const data = await apiRequest('/auth/register', 'POST', { username, password });
-    
-    if (data) {
-        return await loginUser(username, password);
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: getEmail(username),
+      password,
+      options: {
+        data: { username }
+      }
+    });
+
+    if (error) {
+      console.warn("Supabase Register Warning:", error.message);
+      return { success: false, error: mapSupabaseError(error.message) };
     }
 
-    // 2. Fallback: Local Storage (Offline Mode)
-    if (isOfflineMode) {
-        console.debug(`[Offline] Registration simulated: ${username}`);
-        return true;
+    if (data.user && !data.session) {
+      return { success: true, error: "Please confirm your email address" };
     }
 
-    return false;
+    return { success: !!data.user, data };
+  } catch (e: any) {
+    console.error("Register Exception", e);
+    return { success: false, error: "Registration failed. Check network." };
+  }
 };
 
 // --- DATA SYNC ---
 
 export const syncUserToCloud = async (user: UserProfile) => {
-    if (isOfflineMode) return;
-    if (!authToken) return;
-    await apiRequest('/sync', 'POST', user);
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) return;
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .upsert({
+      id: authUser.id,
+      username: user.username,
+      profile_data: user,
+      last_synced: new Date().toISOString()
+    });
+
+  if (error) {
+    console.error("Cloud Sync Failed:", error.message);
+  } else {
     console.debug(`[Cloud] Synced: ${user.username}`);
+  }
 };
 
 export const getUserFromCloud = async (username: string): Promise<UserProfile | null> => {
-    if (isOfflineMode) return null;
-    if (!authToken) return null;
-    
-    const data = await apiRequest('/sync', 'GET');
-    
-    if (data) {
-        console.debug(`[Cloud] Loaded profile for: ${username}`);
-        return data as UserProfile;
-    }
-    
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) return null;
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('profile_data')
+    .eq('id', authUser.id)
+    .single();
+
+  if (error) {
+    console.warn("Profile fetch warning:", error.message);
     return null;
+  }
+
+  if (data && data.profile_data) {
+    const hydratedProfile = hydrateProfile(data.profile_data as UserProfile);
+    if (JSON.stringify(hydratedProfile) !== JSON.stringify(data.profile_data)) {
+        syncUserToCloud(hydratedProfile);
+    }
+    return hydratedProfile;
+  }
+  
+  return null;
+};
+
+// --- USER ACTIONS ---
+
+export const deleteCurrentUser = async (): Promise<boolean> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  console.log("Attempting Permanent Account Deletion via RPC...");
+
+  // 1. Try to delete the Auth User via RPC (Permanent Delete)
+  const { error: rpcError } = await supabase.rpc('delete_user_account');
+
+  if (rpcError) {
+    console.error("RPC Delete Failed:", rpcError.message);
+    console.warn("Falling back to profile deletion. Note: Account might remain in Auth if SQL script was not run.");
+
+    // 2. Fallback: Delete just the profile data if RPC missing
+    const { error: tableError } = await supabase
+      .from('user_profiles')
+      .delete()
+      .eq('id', user.id);
+      
+    if (tableError) {
+        console.error("Fallback Profile Delete Failed:", tableError.message);
+        return false;
+    }
+  } else {
+     console.log("Account permanently deleted via RPC.");
+  }
+
+  // Clear session regardless of method
+  await supabase.auth.signOut();
+  return true;
 };
 
 // --- ADMIN FUNCTIONS ---
 
 export const getGlobalUsers = async (): Promise<UserProfile[]> => {
-    if (isOfflineMode) return [];
-    if (!authToken) return [];
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) return [];
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('profile_data');
     
-    const data = await apiRequest('/admin/users', 'GET');
-    return data || [];
+  if (error) {
+    console.error("Admin Fetch Error:", error.message);
+    return [];
+  }
+
+  if (data) {
+    return data.map((row: any) => hydrateProfile(row.profile_data));
+  }
+  return [];
 };
 
 export const deleteGlobalUser = async (username: string): Promise<boolean> => {
-    if (isOfflineMode) return false;
-    if (!authToken) return false;
-    
-    const data = await apiRequest(`/admin/users/${username}`, 'DELETE');
-    return !!data;
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('username', username)
+    .single();
+
+  if (!profile) return false;
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .delete()
+    .eq('id', profile.id);
+
+  return !error;
 };

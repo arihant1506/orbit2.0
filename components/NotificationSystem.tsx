@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ScheduleSlot, UniversitySchedule, WeekSchedule, WaterConfig, OrbitNotification } from '../types';
+import { ScheduleSlot, UniversitySchedule, WeekSchedule, WaterConfig, OrbitNotification, UserPreferences } from '../types';
 import { Bell, Clock, Droplet, GraduationCap, Zap, X, AlertTriangle, Activity, ChevronRight, Timer } from 'lucide-react';
 
 interface NotificationSystemProps {
@@ -8,6 +8,7 @@ interface NotificationSystemProps {
   academicSchedule: UniversitySchedule;
   waterConfig?: WaterConfig;
   dayName: string;
+  preferences?: UserPreferences;
 }
 
 // --- UTILS ---
@@ -50,33 +51,45 @@ const getWaterSlots = (dailyGoal: number) => {
 
 // --- SYSTEM NOTIFICATION TRIGGER ---
 const sendSystemNotification = async (title: string, body: string, tag: string, urgent: boolean = false) => {
-    if (Notification.permission === 'granted') {
+    // Safety check for Environment
+    if (typeof Notification === 'undefined') return;
+
+    if (Notification.permission !== 'granted') {
         try {
-            // Service Worker (Mobile Background Support)
-            if ('serviceWorker' in navigator) {
-                const reg = await navigator.serviceWorker.ready;
-                if (reg && reg.showNotification) {
-                    await reg.showNotification(title, {
-                        body,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
-                        badge: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
-                        vibrate: urgent ? [500, 100, 500, 100, 500] : [200, 100, 200],
-                        tag: tag,
-                        renotify: true,
-                        requireInteraction: urgent
-                    } as any);
-                    return;
-                }
-            }
-            // Desktop Fallback
-            new Notification(title, { 
-                body, 
-                icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
-                tag 
-            });
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return;
         } catch (e) {
-            console.error("Notification failed", e);
+            return;
         }
+    }
+
+    try {
+        // Service Worker (Mobile Background Support)
+        if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && reg.showNotification) {
+                await reg.showNotification(title, {
+                    body,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png', // Fallback icon
+                    badge: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
+                    vibrate: urgent ? [500, 100, 500, 100, 500] : [200, 100, 200],
+                    tag: tag, // Prevents duplicate stacking
+                    renotify: true,
+                    requireInteraction: urgent,
+                    data: { url: window.location.href }
+                } as any);
+                return;
+            }
+        }
+        // Desktop Fallback
+        new Notification(title, { 
+            body, 
+            icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
+            tag,
+            requireInteraction: urgent 
+        });
+    } catch (e) {
+        console.error("Notification failed", e);
     }
 };
 
@@ -84,106 +97,148 @@ const sendSystemNotification = async (title: string, body: string, tag: string, 
 const playAlert = (urgency: 'normal' | 'critical') => {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const t = ctx.currentTime;
-    
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    if (urgency === 'critical') {
-        // Urgent Alarm
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(800, t);
-        osc.frequency.linearRampToValueAtTime(1200, t + 0.1);
-        osc.frequency.linearRampToValueAtTime(800, t + 0.2);
-        osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+    try {
+        const ctx = new AudioContext();
+        const t = ctx.currentTime;
         
-        gain.gain.setValueAtTime(0.2, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         
-        osc.start(t);
-        osc.stop(t + 0.6);
-    } else {
-        // Standard Ping
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, t);
-        osc.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
         
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-        
-        osc.start(t);
-        osc.stop(t + 0.3);
+        if (urgency === 'critical') {
+            // Urgent Alarm (Sawtooth)
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, t);
+            osc.frequency.linearRampToValueAtTime(1200, t + 0.1);
+            osc.frequency.linearRampToValueAtTime(800, t + 0.2);
+            osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+            
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
+            
+            osc.start(t);
+            osc.stop(t + 0.6);
+        } else {
+            // Standard Ping (Sine)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, t);
+            osc.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+            
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+            
+            osc.start(t);
+            osc.stop(t + 0.3);
+        }
+    } catch (e) {
+        // Silently fail audio if context cannot be created (e.g. strict autoplay policy)
     }
 };
 
-export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule, academicSchedule, waterConfig, dayName }) => {
+export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule, academicSchedule, waterConfig, dayName, preferences }) => {
   const [activeNotifications, setActiveNotifications] = useState<OrbitNotification[]>([]);
   
   // Track triggered alerts to prevent duplicate sound/system-notifs
-  // Format: "ID-15" or "ID-5"
+  // Format: "TYPE-ID-THRESHOLD" (e.g. "class-math101-15")
   const alertHistory = useRef<Set<string>>(new Set());
+
+  // Track dismissed visual notifications to prevent reappearance in app
+  const dismissedNotifications = useRef<Set<string>>(new Set());
   
   // Logic Loop
   useEffect(() => {
+    // Safety check before requesting permission
+    if (typeof Notification !== 'undefined') {
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+    }
+
     const checkEvents = () => {
         const now = new Date();
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
         
-        // VISUAL WINDOW: Show in app 15 minutes before
-        const VISUAL_WINDOW = 15; 
-        
+        const VISUAL_WINDOW = 20; // Show in app 20 minutes before
         const newNotifications: OrbitNotification[] = [];
 
-        const processEvent = (id: string, title: string, subtitle: string, startTime: string, type: 'task' | 'class' | 'water') => {
+        // Check if preferences exist, otherwise default to true
+        const enableWater = preferences?.notifications?.water ?? true;
+        const enableSchedule = preferences?.notifications?.schedule ?? true;
+        const enableAcademic = preferences?.notifications?.academic ?? true;
+
+        const processEvent = (
+            id: string, 
+            title: string, 
+            subtitle: string, 
+            startTime: string, 
+            type: 'task' | 'class' | 'water'
+        ) => {
             const startMin = parseTime(startTime);
             if (startMin === -1) return;
             
             const diff = startMin - currentMinutes;
             const uniqueId = `${type}-${dayName}-${id}`;
 
-            // 1. Alert Logic (Strict 15m and 5m triggers)
-            // If < 0, event started, don't trigger new alerts, maybe clear old ones (handled by visual window)
-            
-            if (diff <= 15 && diff > 0) {
-                // Determine Urgency
-                if (diff <= 5) {
-                    // Critical Range (5 mins or less)
-                    if (!alertHistory.current.has(`${uniqueId}-5`)) {
-                        playAlert('critical');
-                        sendSystemNotification(
-                            `CRITICAL: ${title}`, 
-                            `HURRY! Starting in ${diff} mins. ${subtitle}`,
-                            uniqueId,
-                            true
-                        );
-                        alertHistory.current.add(`${uniqueId}-5`);
-                        // Also mark 15 as done so we don't back-trigger if app opened late
-                        alertHistory.current.add(`${uniqueId}-15`);
-                    }
-                } else {
-                    // Warning Range (15 mins)
-                    if (!alertHistory.current.has(`${uniqueId}-15`)) {
+            // --- 1. ACADEMIC SPECIFIC LOGIC (15m and 5m) ---
+            if (type === 'class' && enableAcademic) {
+                // 15 Minute Warning
+                if (diff <= 15 && diff > 5 && !alertHistory.current.has(`${uniqueId}-15`)) {
+                    playAlert('normal');
+                    sendSystemNotification(
+                        `ACADEMIC WARNING: ${title}`, 
+                        `T-Minus 15 Minutes. Venue: ${subtitle}. Prepare visuals.`,
+                        `${uniqueId}-15`,
+                        false
+                    );
+                    alertHistory.current.add(`${uniqueId}-15`);
+                }
+                
+                // 5 Minute CRITICAL Warning
+                if (diff <= 5 && diff > 0 && !alertHistory.current.has(`${uniqueId}-5`)) {
+                    playAlert('critical');
+                    sendSystemNotification(
+                        `CRITICAL START: ${title}`, 
+                        `T-Minus 5 Minutes! Movement required immediately.`,
+                        `${uniqueId}-5`,
+                        true
+                    );
+                    alertHistory.current.add(`${uniqueId}-5`);
+                    // Mark 15 as done to avoid race conditions
+                    alertHistory.current.add(`${uniqueId}-15`);
+                }
+            }
+
+            // --- 2. GENERAL SCHEDULE & WATER LOGIC ---
+            // Trigger once at 10 minutes for tasks/water
+            if (type !== 'class') {
+                if (diff <= 10 && diff > 0 && !alertHistory.current.has(`${uniqueId}-10`)) {
+                    // Check granular preference
+                    const shouldNotify = (type === 'water' && enableWater) || (type === 'task' && enableSchedule);
+                    
+                    if (shouldNotify) {
                         playAlert('normal');
                         sendSystemNotification(
-                            `UPCOMING: ${title}`, 
-                            `Starting in ${diff} mins. ${subtitle}`,
-                            uniqueId,
+                            type === 'water' ? `HYDRATION: ${title}` : `PROTOCOL: ${title}`, 
+                            type === 'water' ? 'Bio-rhythm requires intake.' : `Upcoming: ${subtitle}`,
+                            `${uniqueId}-10`,
                             false
                         );
-                        alertHistory.current.add(`${uniqueId}-15`);
+                        alertHistory.current.add(`${uniqueId}-10`);
                     }
                 }
+            }
 
-                // 2. Visual Notification Data
+            // --- 3. IN-APP VISUAL NOTIFICATION (ALL TYPES) ---
+            // Only show if within visual window and not dismissed
+            if (diff <= VISUAL_WINDOW && diff > -5 && !dismissedNotifications.current.has(uniqueId)) {
+                
                 // Colors based on Type & Urgency
                 let accent = '';
                 if (type === 'class') accent = diff <= 5 ? 'red' : 'cyan';
                 else if (type === 'task') accent = diff <= 5 ? 'pink' : 'amber';
-                else accent = diff <= 5 ? 'blue' : 'indigo';
+                else accent = 'blue';
 
                 const progress = Math.min(100, Math.max(0, ((VISUAL_WINDOW - diff) / VISUAL_WINDOW) * 100));
 
@@ -195,29 +250,28 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
                     startTimeStr: startTime,
                     minutesUntil: diff,
                     progress,
-                    accentColor: accent // passing simple color key for styling logic below
+                    accentColor: accent
                 });
             }
         };
 
-        // CHECK DAILY TASKS
+        // LOOP: DAILY TASKS
         (schedule[dayName] || []).forEach(task => {
             if (!task.isCompleted) {
-                processEvent(task.id, task.title, 'Daily Protocol', task.timeRange.split('-')[0].trim(), 'task');
+                processEvent(task.id, task.title, task.category, task.timeRange.split('-')[0].trim(), 'task');
             }
         });
 
-        // CHECK ACADEMIC CLASSES
+        // LOOP: ACADEMIC CLASSES
         (academicSchedule[dayName] || []).forEach(cls => {
-            processEvent(cls.id, cls.subject, `${cls.type} @ ${cls.venue}`, cls.startTime, 'class');
+            processEvent(cls.id, cls.subject, cls.venue, cls.startTime, 'class');
         });
 
-        // CHECK WATER
+        // LOOP: WATER
         if (waterConfig) {
             getWaterSlots(waterConfig.dailyGoal).forEach(slot => {
-                // Water only notifies if not done.
                 if (!waterConfig.progress.includes(slot.id)) {
-                    processEvent(slot.id, slot.label, 'Hydration Check', slot.time, 'water');
+                    processEvent(slot.id, slot.label, 'Bio-Maintenance', slot.time, 'water');
                 }
             });
         }
@@ -230,7 +284,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
     checkEvents(); // Initial check
 
     return () => clearInterval(interval);
-  }, [schedule, academicSchedule, waterConfig, dayName]);
+  }, [schedule, academicSchedule, waterConfig, dayName, preferences]);
 
 
   if (activeNotifications.length === 0) return null;
@@ -238,7 +292,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
   return (
     <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] flex flex-col gap-4 w-full max-w-[340px] pointer-events-none perspective-1000">
        {activeNotifications.map((notif, idx) => {
-           const isCritical = notif.minutesUntil <= 5;
+           const isCritical = notif.minutesUntil <= 5 && notif.minutesUntil > 0;
            
            // Style Config based on type & urgency
            let colors = {
@@ -311,11 +365,20 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
                                      <div className="flex items-center gap-1.5">
                                          {isCritical ? <Timer className={`w-3 h-3 ${colors.iconColor} animate-pulse`} /> : <Zap className={`w-3 h-3 ${colors.iconColor}`} />}
                                          <span className="text-[10px] font-bold uppercase text-slate-300">
-                                             T-Minus <span className={`text-lg font-black font-mono mx-1 ${colors.text}`}>{notif.minutesUntil}</span> MIN
+                                             {notif.minutesUntil > 0 ? (
+                                                 <>T-Minus <span className={`text-lg font-black font-mono mx-1 ${colors.text}`}>{notif.minutesUntil}</span> MIN</>
+                                             ) : (
+                                                 <span className="text-emerald-400">ACTIVE NOW</span>
+                                             )}
                                          </span>
                                      </div>
                                      <button 
-                                        onClick={() => setActiveNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                                        onClick={() => {
+                                            // Permanently dismiss for this session/event
+                                            dismissedNotifications.current.add(notif.id);
+                                            // Immediately remove from UI
+                                            setActiveNotifications(prev => prev.filter(n => n.id !== notif.id));
+                                        }}
                                         className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-colors"
                                      >
                                          <X className="w-4 h-4" />

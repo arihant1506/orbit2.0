@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useSpring, useTransform, useVelocity } from 'framer-motion';
 import { playOrbitSound } from '../utils/audio';
 
@@ -19,6 +18,7 @@ interface LiquidTabsProps {
 export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange, layoutIdPrefix, variant = 'pill' }) => {
   const [dimensions, setDimensions] = useState({ left: 0, width: 0, opacity: 0 });
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // --- PHYSICS ENGINE (Professional Feel) ---
   const springConfig = { stiffness: 400, damping: 30, mass: 1 };
@@ -37,20 +37,52 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
   const rgbShift = useTransform(xVelocity, [-3000, 0, 3000], [-3, 0, 3]);
   const rgbOpacity = useTransform(xVelocity, [-2000, 0, 2000], [0.6, 0, 0.6]);
 
-  useEffect(() => {
+  // Update highlighter position
+  const updateHighlight = useCallback(() => {
     const activeIndex = tabs.findIndex(t => t.id === activeId);
     const el = tabRefs.current[activeIndex];
     
     if (el) {
-      setDimensions({
-        left: el.offsetLeft,
-        width: el.offsetWidth,
-        opacity: 1
-      });
-      left.set(el.offsetLeft);
-      width.set(el.offsetWidth);
+      const newLeft = el.offsetLeft;
+      const newWidth = el.offsetWidth;
+
+      // Only update if actually changed (prevents loops)
+      if (newLeft !== left.get() || newWidth !== width.get()) {
+          setDimensions({
+            left: newLeft,
+            width: newWidth,
+            opacity: 1
+          });
+          left.set(newLeft);
+          width.set(newWidth);
+      }
     }
   }, [activeId, tabs, left, width]);
+
+  // 1. Initial load and activeId change
+  useEffect(() => {
+    updateHighlight();
+  }, [updateHighlight]);
+
+  // 2. Font Loading Safety Check (Prevents wrong width before fonts load)
+  useEffect(() => {
+    if (document.fonts) {
+        document.fonts.ready.then(() => updateHighlight());
+    }
+  }, [updateHighlight]);
+
+  // 3. Robust Resize Observer (Handles container resize even if window doesn't fire event)
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+        // Debounce slightly to ensure DOM reflow is complete
+        requestAnimationFrame(() => updateHighlight());
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [updateHighlight]);
 
   const handleTabClick = (id: string) => {
       if (navigator.vibrate) navigator.vibrate(5); 
@@ -67,6 +99,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
 
   return (
     <div 
+      ref={containerRef}
       className={`relative flex items-center max-w-full ${
         variant === 'pill' 
           ? 'bg-black/20 p-1 rounded-full border border-white/5 backdrop-blur-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.3),0_4px_20px_rgba(0,0,0,0.2)] overflow-x-auto no-scrollbar' 

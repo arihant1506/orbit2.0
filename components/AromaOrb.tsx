@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 interface AromaOrbProps {
-  size?: string; // e.g. "w-24 h-24"
+  size?: string;
   intensity?: 'low' | 'normal' | 'high';
   colorMode?: 'default' | 'gold' | 'danger' | 'success';
   showRings?: boolean;
@@ -15,80 +14,115 @@ export const AromaOrb: React.FC<AromaOrbProps> = ({
   showRings = true
 }) => {
   
-  // Color Configs
-  const gradients = {
+  // Siri-like Vibrant Themes using additive color mixing (mix-blend-screen)
+  const themes = {
     default: {
-      bg: 'bg-gradient-to-tr from-white/5 to-white/10',
-      fluid1: 'from-cyan-500/20 via-transparent to-purple-500/20',
-      fluid2: 'from-cyan-400/30 to-blue-600/30',
-      fluid3: 'from-purple-500/30 to-pink-500/30',
-      blob1: 'bg-cyan-400/30',
-      blob2: 'bg-fuchsia-400/30',
-      core: 'shadow-[0_0_15px_white,0_0_25px_cyan]',
-      ring: 'border-cyan-500/10'
+      base: 'bg-black', // Deep base for colors to pop against
+      // Distinct colorful blobs
+      blob1: 'bg-cyan-400',
+      blob2: 'bg-blue-600',
+      blob3: 'bg-purple-500',
+      blob4: 'bg-pink-500',
+      blob5: 'bg-white', // Hot core
+      ring: 'border-cyan-500/30',
+      glow: 'shadow-[0_0_40px_rgba(6,182,212,0.6),0_0_80px_rgba(168,85,247,0.4)]'
     },
     gold: {
-      bg: 'bg-gradient-to-tr from-amber-500/5 to-amber-500/10',
-      fluid1: 'from-amber-500/20 via-transparent to-orange-500/20',
-      fluid2: 'from-amber-400/30 to-yellow-600/30',
-      fluid3: 'from-orange-500/30 to-red-500/30',
-      blob1: 'bg-amber-400/30',
-      blob2: 'bg-orange-400/30',
-      core: 'shadow-[0_0_15px_white,0_0_25px_orange]',
-      ring: 'border-amber-500/20'
+      base: 'bg-amber-950',
+      blob1: 'bg-amber-400',
+      blob2: 'bg-yellow-500',
+      blob3: 'bg-orange-600',
+      blob4: 'bg-red-500',
+      blob5: 'bg-white',
+      ring: 'border-amber-500/30',
+      glow: 'shadow-[0_0_40px_rgba(245,158,11,0.6),0_0_80px_rgba(234,88,12,0.4)]'
     },
     danger: {
-      bg: 'bg-gradient-to-tr from-red-500/5 to-red-500/10',
-      fluid1: 'from-red-500/20 via-transparent to-orange-500/20',
-      fluid2: 'from-red-400/30 to-rose-600/30',
-      fluid3: 'from-orange-500/30 to-red-500/30',
-      blob1: 'bg-red-400/30',
-      blob2: 'bg-orange-400/30',
-      core: 'shadow-[0_0_15px_white,0_0_25px_red]',
-      ring: 'border-red-500/20'
+      base: 'bg-red-950',
+      blob1: 'bg-red-500',
+      blob2: 'bg-rose-600',
+      blob3: 'bg-orange-600',
+      blob4: 'bg-pink-600',
+      blob5: 'bg-white',
+      ring: 'border-red-500/30',
+      glow: 'shadow-[0_0_40px_rgba(239,68,68,0.6),0_0_80px_rgba(244,63,94,0.4)]'
     },
     success: {
-      bg: 'bg-gradient-to-tr from-emerald-500/5 to-emerald-500/10',
-      fluid1: 'from-emerald-500/20 via-transparent to-green-500/20',
-      fluid2: 'from-emerald-400/30 to-teal-600/30',
-      fluid3: 'from-green-500/30 to-lime-500/30',
-      blob1: 'bg-emerald-400/30',
-      blob2: 'bg-lime-400/30',
-      core: 'shadow-[0_0_15px_white,0_0_25px_emerald]',
-      ring: 'border-emerald-500/20'
+      base: 'bg-emerald-950',
+      blob1: 'bg-emerald-400',
+      blob2: 'bg-green-500',
+      blob3: 'bg-teal-500',
+      blob4: 'bg-lime-400',
+      blob5: 'bg-white',
+      ring: 'border-emerald-500/30',
+      glow: 'shadow-[0_0_40px_rgba(16,185,129,0.6),0_0_80px_rgba(20,184,166,0.4)]'
     }
   };
 
-  const theme = gradients[colorMode];
+  const t = themes[colorMode];
   
-  // Animation Speeds
-  const speed = intensity === 'high' ? 'duration-500' : intensity === 'low' ? 'duration-[2000ms]' : 'duration-1000';
+  // Animation speed adjustment based on intensity
+  const fastSpeed = intensity === 'high' ? '2s' : intensity === 'low' ? '6s' : '3s';
+  const slowSpeed = intensity === 'high' ? '4s' : intensity === 'low' ? '10s' : '7s';
 
   return (
     <div className={`relative ${size} flex items-center justify-center`}>
-        {/* The Perfect Circle Container (Removed animate-morph, added rounded-full) */}
-        <div className={`absolute inset-0 w-full h-full rounded-full overflow-hidden backdrop-blur-sm border border-white/10 shadow-[inset_0_0_20px_rgba(255,255,255,0.05)] transition-all ${speed} ${theme.bg}`}>
+        
+        {/* Main Orb Container */}
+        <div className={`absolute inset-0 rounded-full overflow-hidden ${t.base} ring-1 ring-white/20 isolate`}>
             
-              {/* Fluid Layer 1: Base Wash */}
-              <div className={`absolute inset-0 bg-gradient-to-br animate-pulse ${theme.fluid1}`} />
-              
-              {/* Fluid Layer 2: Moving Blobs */}
-              <div className="absolute top-[-20%] right-[-20%] w-[120%] h-[120%] bg-[conic-gradient(from_0deg,transparent_0deg,rgba(255,255,255,0.1)_90deg,transparent_180deg,rgba(255,255,255,0.1)_270deg,transparent_360deg)] animate-spin-slow opacity-30 blur-xl"></div>
-              
-              <div className={`absolute top-0 right-0 w-[60%] h-[60%] rounded-full blur-xl animate-blob ${theme.blob1}`}></div>
-              <div className={`absolute bottom-0 left-0 w-[60%] h-[60%] rounded-full blur-xl animate-blob ${theme.blob2}`} style={{animationDelay: '2s', animationDirection: 'reverse'}}></div>
-              
-              {/* Subtle Noise Texture */}
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+            {/* 1. Global Rotation - Adds a spinning layer */}
+            <div className="absolute inset-[-50%] w-[200%] h-[200%] animate-spin-slow opacity-50 mix-blend-screen"
+                 style={{ 
+                   background: `conic-gradient(from 0deg, transparent 0deg, ${colorMode === 'default' ? '#06b6d4' : 'currentColor'} 60deg, transparent 120deg)` 
+                 }} 
+            />
+
+            {/* 2. Fluid Blobs - The "Siri" Core */}
+            {/* Blob 1: Top Right */}
+            <div 
+              className={`absolute top-0 right-0 w-[70%] h-[70%] rounded-full mix-blend-screen blur-[15px] sm:blur-[25px] opacity-90 animate-blob ${t.blob1}`}
+              style={{ animationDuration: slowSpeed, animationDelay: '0s' }} 
+            />
+            
+            {/* Blob 2: Bottom Left */}
+            <div 
+              className={`absolute bottom-0 left-0 w-[70%] h-[70%] rounded-full mix-blend-screen blur-[15px] sm:blur-[25px] opacity-90 animate-blob ${t.blob2}`}
+              style={{ animationDuration: '5s', animationDelay: '1s' }} 
+            />
+            
+            {/* Blob 3: Bottom Right (Accent) */}
+            <div 
+              className={`absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full mix-blend-screen blur-[15px] sm:blur-[25px] opacity-90 animate-blob ${t.blob3}`}
+              style={{ animationDuration: fastSpeed, animationDelay: '2s' }} 
+            />
+            
+            {/* Blob 4: Top Left (Accent) */}
+            <div 
+              className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full mix-blend-screen blur-[15px] sm:blur-[25px] opacity-90 animate-blob ${t.blob4}`}
+              style={{ animationDuration: '6s', animationDelay: '0.5s' }} 
+            />
+
+            {/* 3. Core Hotspot - Bright center */}
+            <div className={`absolute inset-0 m-auto w-[20%] h-[20%] rounded-full blur-[10px] mix-blend-screen animate-pulse ${t.blob5}`} />
+
+            {/* 4. Texture Overlay (Noise) */}
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay" />
+            
+            {/* 5. Highlight Gloss */}
+            <div className="absolute top-0 left-[10%] w-[40%] h-[20%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[5px]" />
         </div>
 
-        {/* Outer Rings for Depth (Static Circle) */}
-        {showRings && (
-          <div className={`absolute inset-[-4px] border rounded-full opacity-40 ${theme.ring}`} />
-        )}
+        {/* External Glow / Aura */}
+        <div className={`absolute inset-0 rounded-full mix-blend-screen ${t.glow} opacity-60 animate-pulse`} style={{ animationDuration: '3s' }} />
 
-        {/* Core Glow */}
-        <div className={`absolute z-20 w-[6%] h-[6%] bg-white rounded-full animate-pulse ${theme.core}`} />
+        {/* Orbiting Rings */}
+        {showRings && (
+          <>
+            <div className={`absolute inset-[-15%] rounded-full border border-dashed opacity-40 animate-spin-slow ${t.ring}`} style={{ animationDuration: '15s' }} />
+            <div className={`absolute inset-[-5%] rounded-full border opacity-70 ${t.ring}`} />
+          </>
+        )}
     </div>
   );
 };

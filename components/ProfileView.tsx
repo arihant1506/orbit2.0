@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { UserProfile, ThemeMode } from '../types';
-import { User, Mail, Lock, Shield, Moon, Sun, Monitor, Bell, Calendar, Download, RefreshCw, Trash2, LogOut, ChevronRight, Check, AlertTriangle, Smartphone, Globe, Code, LayoutGrid, X, Palette, Sparkles, Bot, Key } from 'lucide-react';
+import { User, Mail, Lock, Shield, Moon, Sun, Monitor, Bell, Calendar, Download, RefreshCw, Trash2, LogOut, ChevronRight, Check, AlertTriangle, Smartphone, Globe, Code, LayoutGrid, X, Palette, Sparkles, Bot, Key, Droplet, Clock, GraduationCap, Laptop, AppWindow, ExternalLink, Smartphone as PhoneIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playOrbitSound } from '../utils/audio';
 
@@ -14,6 +14,9 @@ interface ProfileViewProps {
   onForceSync: () => void;
   lastSyncTime: Date | null;
   isSyncing?: boolean;
+  onInstallApp?: () => void;
+  canInstall?: boolean;
+  onToggleWidgetMode?: () => void;
 }
 
 // --- AVATAR CONFIGURATION ---
@@ -140,6 +143,7 @@ const AvatarSelectorModal = ({ isOpen, onClose, onSelect, currentAvatar }: { isO
 };
 
 const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: boolean, onClose: () => void, user: UserProfile, onUpdate: (updates: Partial<UserProfile>) => void }) => {
+    // ... (same as before)
     const [currentPass, setCurrentPass] = useState('');
     const [newPass, setNewPass] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
@@ -147,7 +151,6 @@ const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: bool
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Basic validation (In a real app, verify against hash)
         if (currentPass !== user.password) {
             setError('Current password incorrect');
             playOrbitSound('error');
@@ -167,7 +170,6 @@ const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: bool
         onUpdate({ password: newPass });
         playOrbitSound('success_chord');
         onClose();
-        // Reset form
         setCurrentPass('');
         setNewPass('');
         setConfirmPass('');
@@ -180,7 +182,6 @@ const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: bool
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
             <div onClick={(e: React.MouseEvent) => e.stopPropagation()} className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none" />
-                
                 <div className="p-6 sm:p-8 relative z-10">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
@@ -191,59 +192,30 @@ const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: bool
                         </div>
                         <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-5 h-5 text-slate-500" /></button>
                     </div>
-
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1">
                             <label className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest ml-2">Current Credential</label>
                             <div className="relative">
                                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-slate-500" />
-                                <input 
-                                    type="password" 
-                                    value={currentPass}
-                                    onChange={(e) => setCurrentPass(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors"
-                                    placeholder="••••••••"
-                                />
+                                <input type="password" value={currentPass} onChange={(e) => setCurrentPass(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors" placeholder="••••••••" />
                             </div>
                         </div>
-
                         <div className="space-y-1 pt-2">
                             <label className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest ml-2">New Credential</label>
                             <div className="relative">
                                 <Key className="absolute left-4 top-3.5 w-4 h-4 text-slate-500" />
-                                <input 
-                                    type="password" 
-                                    value={newPass}
-                                    onChange={(e) => setNewPass(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors"
-                                    placeholder="••••••••"
-                                />
+                                <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors" placeholder="••••••••" />
                             </div>
                         </div>
-
                         <div className="space-y-1">
                             <label className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest ml-2">Verify Credential</label>
                             <div className="relative">
                                 <Check className="absolute left-4 top-3.5 w-4 h-4 text-slate-500" />
-                                <input 
-                                    type="password" 
-                                    value={confirmPass}
-                                    onChange={(e) => setConfirmPass(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors"
-                                    placeholder="••••••••"
-                                />
+                                <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-sm outline-none focus:border-red-500/50 transition-colors" placeholder="••••••••" />
                             </div>
                         </div>
-
-                        {error && (
-                            <div className="flex items-center gap-2 text-red-400 text-xs font-mono bg-red-500/10 p-3 rounded-lg border border-red-500/20">
-                                <AlertTriangle className="w-3 h-3" /> {error}
-                            </div>
-                        )}
-
-                        <button type="submit" className="w-full py-4 mt-2 bg-red-600 hover:bg-red-500 text-white font-black italic uppercase rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-95 text-xs sm:text-sm tracking-wider">
-                            Update Access Keys
-                        </button>
+                        {error && <div className="flex items-center gap-2 text-red-400 text-xs font-mono bg-red-500/10 p-3 rounded-lg border border-red-500/20"><AlertTriangle className="w-3 h-3" /> {error}</div>}
+                        <button type="submit" className="w-full py-4 mt-2 bg-red-600 hover:bg-red-500 text-white font-black italic uppercase rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-95 text-xs sm:text-sm tracking-wider">Update Access Keys</button>
                     </form>
                 </div>
             </div>
@@ -259,19 +231,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onExportData,
   onForceSync,
   lastSyncTime,
-  isSyncing 
+  isSyncing,
+  onInstallApp,
+  canInstall,
+  onToggleWidgetMode
 }) => {
   const [email, setEmail] = useState(user.email || '');
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
+  // Fallback defaults if user profile is older
   const preferences = user.preferences || {
-    theme: 'system',
+    theme: 'dark',
     startOfWeek: 'Monday',
     timeFormat: '12h',
-    notifications: { dailyReminder: true, taskAlerts: true }
+    notifications: { water: true, schedule: true, academic: true }
   };
+
+  const notifPrefs = preferences.notifications || { water: true, schedule: true, academic: true };
 
   const handleSaveEmail = () => {
     onUpdateUser({ email });
@@ -285,33 +263,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     playOrbitSound('power_up');
   };
 
-  const updatePreference = (key: string, value: any) => {
+  const toggleNotification = (key: 'water' | 'schedule' | 'academic') => {
     playOrbitSound('click');
-    const newPrefs = { ...preferences, [key]: value };
-    onUpdateUser({ preferences: newPrefs });
+    const newNotifs = { ...notifPrefs, [key]: !notifPrefs[key] };
+    onUpdateUser({ preferences: { ...preferences, notifications: newNotifs } });
+    if (!notifPrefs[key] && Notification.permission !== 'granted') {
+       Notification.requestPermission();
+    }
   };
 
-  const toggleNotification = (key: 'dailyReminder' | 'taskAlerts') => {
-    playOrbitSound('click');
-    const newNotifs = { ...preferences.notifications, [key]: !preferences.notifications[key] };
-    onUpdateUser({ preferences: { ...preferences, notifications: newNotifs } });
+  const launchWidgetPopup = () => {
+      playOrbitSound('click');
+      window.open('/?mode=widget', 'OrbitWedge', 'width=380,height=700,resizable=no,scrollbars=no,status=no,toolbar=no,menubar=no');
   };
 
   return (
     <div className="animate-fade-in-up space-y-6 sm:space-y-8 pb-32">
-      <AvatarSelectorModal 
-        isOpen={showAvatarModal} 
-        onClose={() => setShowAvatarModal(false)}
-        onSelect={handleAvatarSelect}
-        currentAvatar={user.avatar}
-      />
-
-      <ChangePasswordModal 
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        user={user}
-        onUpdate={onUpdateUser}
-      />
+      <AvatarSelectorModal isOpen={showAvatarModal} onClose={() => setShowAvatarModal(false)} onSelect={handleAvatarSelect} currentAvatar={user.avatar} />
+      <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} user={user} onUpdate={onUpdateUser} />
       
       {/* 1. IDENTITY HEADER */}
       <div className="relative p-6 sm:p-8 rounded-[2rem] bg-gradient-to-br from-slate-900/80 to-slate-900/40 border border-white/10 overflow-hidden shadow-2xl group">
@@ -319,7 +288,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full group-hover:bg-cyan-500/20 transition-all duration-1000" />
          
          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            {/* Avatar */}
             <div className="relative group/avatar cursor-pointer" onClick={() => setShowAvatarModal(true)}>
                <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-[0_0_30px_rgba(6,182,212,0.3)] group-hover/avatar:shadow-[0_0_50px_rgba(6,182,212,0.5)] transition-all duration-500">
                   <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden relative">
@@ -329,8 +297,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <User className="w-10 h-10 text-cyan-400" />
                      )}
                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                     
-                     {/* Overlay Icon */}
                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity backdrop-blur-[2px]">
                          <LayoutGrid className="w-6 h-6 text-white drop-shadow-md" />
                      </div>
@@ -341,28 +307,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                </button>
             </div>
 
-            {/* Info */}
             <div className="text-center sm:text-left flex-1">
                <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                   <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">{user.username}</h2>
-                  <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-[9px] font-bold font-mono uppercase tracking-widest">
-                    Pilot
-                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-[9px] font-bold font-mono uppercase tracking-widest">Pilot</span>
                </div>
                
                <div className="space-y-2 max-w-md mx-auto sm:mx-0">
-                  {/* Email Field */}
                   <div className="flex items-center gap-2 bg-black/20 rounded-lg p-2 border border-white/5">
                      <Mail className="w-4 h-4 text-slate-500" />
                      {isEditingEmail ? (
                         <div className="flex items-center gap-2 flex-1">
-                           <input 
-                              value={email} 
-                              onChange={(e) => setEmail(e.target.value)}
-                              className="bg-transparent border-none outline-none text-xs font-mono text-white w-full placeholder:text-slate-600"
-                              placeholder="Enter email address"
-                              autoFocus
-                           />
+                           <input value={email} onChange={(e) => setEmail(e.target.value)} className="bg-transparent border-none outline-none text-xs font-mono text-white w-full placeholder:text-slate-600" placeholder="Enter email address" autoFocus />
                            <button onClick={handleSaveEmail} className="text-green-400 hover:text-green-300"><Check className="w-3 h-3" /></button>
                         </div>
                      ) : (
@@ -371,7 +327,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
                      )}
                   </div>
-                  
                   <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500 uppercase tracking-wider justify-center sm:justify-start">
                      <span>Joined: {new Date(user.joinedDate).toLocaleDateString()}</span>
                      <span>•</span>
@@ -384,73 +339,71 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          
-         {/* 2. APP PREFERENCES */}
-         <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md">
-            <h3 className="text-xs font-bold font-mono text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-               <Smartphone className="w-4 h-4" /> System Preferences
+         {/* WIDGET CONSOLE (New) */}
+         <div className="p-6 rounded-[2rem] bg-[#0c0a0e] border border-white/10 shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-[-20%] right-[-10%] w-[200px] h-[200px] bg-purple-500/10 blur-[80px] pointer-events-none" />
+            <h3 className="text-xs font-bold font-mono text-purple-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+               <AppWindow className="w-4 h-4" /> Wedge Console
             </h3>
 
-            <div className="space-y-6">
-               {/* Theme Selector */}
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                     <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400"><Moon className="w-4 h-4" /></div>
-                     <span className="text-sm font-bold text-slate-200">Interface Theme</span>
-                  </div>
-                  <div className="flex bg-black/30 rounded-lg p-1 border border-white/5">
-                     {(['light', 'system', 'dark'] as const).map((t) => (
+            <div className="space-y-4">
+                {/* Desktop Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-500/20 text-purple-400 rounded-lg">
+                            <Monitor className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div className="text-xs font-bold text-white uppercase">Desktop Wedge</div>
+                            <div className="text-[9px] text-slate-500 font-mono">Launch floating dashboard</div>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={launchWidgetPopup}
+                        className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider transition-all shadow-lg"
+                    >
+                        Launch
+                    </button>
+                </div>
+
+                {/* Mobile Instructions */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-white/5 to-transparent border border-white/5">
+                    <div className="flex items-center gap-2 mb-2 text-slate-300">
+                        <PhoneIcon className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Mobile Installation</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+                        To use the Wedge on mobile, install Orbit as a Home Screen App.
+                    </p>
+                    {canInstall && onInstallApp ? (
                         <button 
-                           key={t}
-                           onClick={() => updatePreference('theme', t)}
-                           className={`p-2 rounded-md transition-all ${preferences.theme === t ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                            onClick={onInstallApp}
+                            className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-700"
                         >
-                           {t === 'light' ? <Sun className="w-3.5 h-3.5" /> : t === 'dark' ? <Moon className="w-3.5 h-3.5" /> : <Monitor className="w-3.5 h-3.5" />}
+                            Add to Home Screen
                         </button>
-                     ))}
-                  </div>
-               </div>
+                    ) : (
+                        <div className="text-[9px] text-slate-600 italic">
+                            Use your browser's "Add to Home Screen" option.
+                        </div>
+                    )}
+                </div>
 
-               {/* Week Start */}
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                     <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400"><Calendar className="w-4 h-4" /></div>
-                     <span className="text-sm font-bold text-slate-200">Start of Week</span>
-                  </div>
-                  <button 
-                     onClick={() => updatePreference('startOfWeek', preferences.startOfWeek === 'Monday' ? 'Sunday' : 'Monday')}
-                     className="px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider min-w-[80px]"
-                  >
-                     {preferences.startOfWeek}
-                  </button>
-               </div>
-
-               {/* Notifications */}
-               <div className="space-y-3 pt-2 border-t border-white/5">
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleNotification('dailyReminder')}>
-                     <div className="flex items-center gap-3 opacity-80">
-                        <Bell className="w-4 h-4 text-slate-400" />
-                        <span className="text-xs font-mono text-slate-300 uppercase">Daily Briefing (08:00)</span>
-                     </div>
-                     <div className={`w-8 h-4 rounded-full relative transition-colors ${preferences.notifications.dailyReminder ? 'bg-cyan-500' : 'bg-slate-700'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${preferences.notifications.dailyReminder ? 'left-4.5' : 'left-0.5'}`} />
-                     </div>
-                  </div>
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleNotification('taskAlerts')}>
-                     <div className="flex items-center gap-3 opacity-80">
-                        <AlertTriangle className="w-4 h-4 text-slate-400" />
-                        <span className="text-xs font-mono text-slate-300 uppercase">Protocol Alerts</span>
-                     </div>
-                     <div className={`w-8 h-4 rounded-full relative transition-colors ${preferences.notifications.taskAlerts ? 'bg-cyan-500' : 'bg-slate-700'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${preferences.notifications.taskAlerts ? 'left-4.5' : 'left-0.5'}`} />
-                     </div>
-                  </div>
-               </div>
+                {/* In-App Toggle */}
+                {onToggleWidgetMode && (
+                    <button 
+                        onClick={() => { playOrbitSound('click'); onToggleWidgetMode(); }}
+                        className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group"
+                    >
+                        <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">Toggle Focus Overlay</span>
+                        <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-white" />
+                    </button>
+                )}
             </div>
          </div>
 
          {/* 3. DATA & SECURITY */}
          <div className="space-y-6">
-            {/* Sync Card */}
             <div className="p-6 rounded-[2rem] bg-emerald-900/10 border border-emerald-500/20 backdrop-blur-md">
                 <h3 className="text-xs font-bold font-mono text-emerald-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                    <Globe className="w-4 h-4" /> Cloud Uplink
@@ -465,24 +418,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                    <div className={`w-3 h-3 rounded-full ${lastSyncTime ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-slate-700'}`} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                   <button 
-                      onClick={onForceSync}
-                      disabled={isSyncing}
-                      className="py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                   >
-                      <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /> 
-                      {isSyncing ? 'Syncing...' : 'Force Sync'}
+                   <button onClick={onForceSync} disabled={isSyncing} className="py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                      <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Syncing...' : 'Force Sync'}
                    </button>
-                   <button 
-                      onClick={onExportData} 
-                      className="py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-white hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95"
-                   >
+                   <button onClick={onExportData} className="py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-white hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95">
                       <Download className="w-3 h-3" /> Export JSON
                    </button>
                 </div>
             </div>
 
-            {/* Danger Zone */}
             <div className="p-6 rounded-[2rem] bg-red-900/5 border border-red-500/10 backdrop-blur-md">
                 <h3 className="text-xs font-bold font-mono text-red-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                    <Shield className="w-4 h-4" /> Danger Zone
@@ -501,7 +445,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
          </div>
       </div>
 
-      {/* 4. FOOTER & CREDITS */}
       <div className="text-center pt-8 border-t border-white/5">
          <div className="flex items-center justify-center gap-2 mb-6">
              <Code className="w-4 h-4 text-cyan-500" />
@@ -509,22 +452,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 System Architecture by <span className="text-cyan-400">Arihant / Aj Production</span>
              </span>
          </div>
-         
          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 mb-4">
             <div className="flex gap-6">
                 <button className="text-[10px] font-mono text-slate-600 hover:text-white uppercase tracking-wider transition-colors">Privacy Policy</button>
                 <button className="text-[10px] font-mono text-slate-600 hover:text-white uppercase tracking-wider transition-colors">Terms of Service</button>
             </div>
-            
-            <button 
-                onClick={onLogout} 
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-bold font-mono uppercase tracking-widest group shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]"
-            >
-               <LogOut className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" /> 
-               Disconnect
+            <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-bold font-mono uppercase tracking-widest group shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+               <LogOut className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" /> Disconnect
             </button>
          </div>
-
          <p className="text-[9px] text-slate-700 font-mono">Orbit Routine Tracker v3.2.0 (Build 2024.10.25)</p>
       </div>
     </div>
