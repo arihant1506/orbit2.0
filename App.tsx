@@ -13,6 +13,7 @@ import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut } from 'lucide-r
 import { LiquidTabs } from './components/LiquidTabs';
 import { getUserFromCloud, syncUserToCloud, loginUser, registerUser, getGlobalUsers, deleteGlobalUser, deleteCurrentUser } from './utils/db';
 import { playOrbitSound } from './utils/audio';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 
 // --- LAZY LOAD HEAVY COMPONENTS ---
 const WeeklyReport = React.lazy(() => import('./components/WeeklyReport').then(m => ({ default: m.WeeklyReport })));
@@ -188,6 +189,9 @@ export const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  // Initialize Realtime Sync Hook
+  useRealtimeSync(currentUser, setUsers);
 
   useEffect(() => { 
     setIsClient(true); 
