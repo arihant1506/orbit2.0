@@ -9,7 +9,7 @@ import { WelcomeLoader } from './components/WelcomeLoader';
 import { CompactWidget } from './components/CompactWidget'; 
 import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_SCHEDULE, BLANK_UNI_SCHEDULE } from './constants';
 import { WeekSchedule, ThemeMode, UserProfile, ScheduleSlot, WaterConfig, ClassSession, NoteItem } from './types';
-import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut } from 'lucide-react'; 
+import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut, Save, CheckCircle2, ShieldCheck, Cloud } from 'lucide-react'; 
 import { LiquidTabs } from './components/LiquidTabs';
 import { getUserFromCloud, syncUserToCloud, loginUser, registerUser, getGlobalUsers, deleteGlobalUser, deleteCurrentUser } from './utils/db';
 import { playOrbitSound } from './utils/audio';
@@ -170,6 +170,25 @@ const LoadingFallback = () => (
   </div>
 );
 
+// --- LOGOUT LOADER OVERLAY ---
+const LogoutLoader = () => (
+    <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center"
+    >
+        <div className="relative">
+            <div className="w-24 h-24 rounded-full border-2 border-red-500/20 border-t-red-500 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+                <ShieldCheck className="w-10 h-10 text-red-500 animate-pulse" />
+            </div>
+        </div>
+        <h2 className="mt-8 text-2xl font-black italic text-white uppercase tracking-tighter">Securing Data</h2>
+        <p className="mt-2 text-[10px] font-mono text-red-500 uppercase tracking-[0.3em] animate-pulse">Do not close window</p>
+    </motion.div>
+);
+
 export const App: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(true); 
   const [isWidgetMode, setIsWidgetMode] = useState(false); 
@@ -187,11 +206,38 @@ export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'academic' | 'notes' | 'hydration' | 'profile' | 'admin'>('daily');
   const [isClient, setIsClient] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
 
   // Initialize Realtime Sync Hook
   useRealtimeSync(currentUser, setUsers);
+
+  // --- PERSISTENCE FIX: FETCH ON MOUNT/RELOAD ---
+  useEffect(() => {
+    const fetchLatestProfile = async () => {
+      if (currentUser) {
+        setIsSyncing(true);
+        try {
+          // Always try to get the latest data from the cloud on mount
+          const cloudProfile = await getUserFromCloud(currentUser);
+          if (cloudProfile) {
+            console.log('[Persistence] Cloud profile loaded for', currentUser);
+            setUsers(prev => ({
+              ...prev,
+              [currentUser]: cloudProfile
+            }));
+          }
+        } catch (e) {
+          console.error('[Persistence] Failed to fetch profile', e);
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    };
+
+    fetchLatestProfile();
+  }, [currentUser]);
 
   useEffect(() => { 
     setIsClient(true); 
@@ -224,17 +270,20 @@ export const App: React.FC = () => {
       });
   }, [installPrompt]);
 
-  // Sync Logic
+  // Sync Logic (Auto-Save on Change)
   useEffect(() => {
       const sync = async () => {
-        if (currentUser && users[currentUser]) {
+        // Only auto-sync if we are NOT in the middle of a logout procedure to avoid conflicts
+        if (currentUser && users[currentUser] && !isLoggingOut) {
             await syncUserToCloud(users[currentUser]);
             setLastSyncTime(new Date());
         }
       };
-      const t = setTimeout(sync, 2000);
+      
+      // Aggressive Sync: 500ms debounce (Reduced from 1000ms for safety)
+      const t = setTimeout(sync, 500);
       return () => clearTimeout(t);
-  }, [users, currentUser]);
+  }, [users, currentUser, isLoggingOut]);
 
   useEffect(() => {
     if (currentUser === 'arihant') {
@@ -324,21 +373,40 @@ export const App: React.FC = () => {
   }, []);
 
   const handleLogout = useCallback(async () => {
-    if (currentUser && users[currentUser]) await syncUserToCloud(users[currentUser]);
+    if (currentUser && users[currentUser]) {
+        // 1. Enter Blocking State
+        setIsLoggingOut(true);
+        try {
+            // 2. Force Final Sync
+            await syncUserToCloud(users[currentUser]);
+            console.log('Final sync before logout complete.');
+        } catch (e) {
+            console.error('Logout sync warning:', e);
+            // We proceed to logout even if sync fails, but user saw the loading spinner
+        }
+    }
+    
+    // 3. Clear Session
     setCurrentUser(null);
     localStorage.removeItem('orbit_active_user');
     localStorage.removeItem('orbit_jwt');
+    
+    // 4. Reset UI State
+    setIsLoggingOut(false);
+    setViewMode('daily'); // Reset view for next login
   }, [currentUser, users]);
 
   const handleDeleteAccount = useCallback(async () => {
     if (!currentUser) return;
     playOrbitSound('delete');
+    setIsLoggingOut(true); // Show loader
     await deleteCurrentUser();
     setUsers(prev => { const next = { ...prev }; delete next[currentUser]; return next; });
     setCurrentUser(null);
     localStorage.removeItem('orbit_active_user');
     localStorage.removeItem('orbit_jwt');
     setViewMode('daily');
+    setIsLoggingOut(false);
   }, [currentUser]);
 
   const handleToggleSlot = useCallback((day: string, slotId: string) => {
@@ -480,6 +548,11 @@ export const App: React.FC = () => {
       
       <GlossyBackground />
 
+      {/* --- SYSTEM OVERLAYS --- */}
+      <AnimatePresence>
+        {isLoggingOut && <LogoutLoader />}
+      </AnimatePresence>
+
       {/* --- WIDGET MODE (WEDGE) --- */}
       <AnimatePresence>
         {isWidgetMode && userProfile && (
@@ -544,6 +617,20 @@ export const App: React.FC = () => {
                                             <span className="text-lg sm:text-xl font-black italic tracking-tighter text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">ORBIT</span>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/20 border border-white/5 mr-2">
+                                                {isSyncing ? (
+                                                    <>
+                                                        <Loader2 className="w-3 h-3 text-cyan-500 animate-spin" />
+                                                        <span className="text-[9px] font-mono text-cyan-500 uppercase">Syncing</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Cloud className="w-3 h-3 text-emerald-500" />
+                                                        <span className="text-[9px] font-mono text-emerald-500 uppercase">Online</span>
+                                                    </>
+                                                )}
+                                            </div>
+
                                             {userProfile?.preferences && (
                                                 <NotificationControl 
                                                     preferences={userProfile.preferences} 
