@@ -1,48 +1,49 @@
+
 // Manually declared types to avoid "Cannot find type definition file for 'vite/client'" error.
 
 declare module '*.svg' {
-  const content: string;
-  export default content;
+  const svgContent: string;
+  export default svgContent;
 }
 
 declare module '*.png' {
-  const content: string;
-  export default content;
+  const pngContent: string;
+  export default pngContent;
 }
 
 declare module '*.jpg' {
-  const content: string;
-  export default content;
+  const jpgContent: string;
+  export default jpgContent;
 }
 
 declare module '*.jpeg' {
-  const content: string;
-  export default content;
+  const jpegContent: string;
+  export default jpegContent;
 }
 
 declare module '*.gif' {
-  const content: string;
-  export default content;
+  const gifContent: string;
+  export default gifContent;
 }
 
 declare module '*.webp' {
-  const content: string;
-  export default content;
+  const webpContent: string;
+  export default webpContent;
 }
 
 declare module '*.ico' {
-  const content: string;
-  export default content;
+  const icoContent: string;
+  export default icoContent;
 }
 
 declare module '*.bmp' {
-  const content: string;
-  export default content;
+  const bmpContent: string;
+  export default bmpContent;
 }
 
 declare module '*.avif' {
-  const content: string;
-  export default content;
+  const avifContent: string;
+  export default avifContent;
 }
 
 interface ImportMetaEnv {

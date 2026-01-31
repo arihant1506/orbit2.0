@@ -1,12 +1,14 @@
 
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar, AreaChart, Area, YAxis } from 'recharts';
-import { WeekSchedule, ScheduleSlot, WeeklyStats, Category } from '../types';
-import { AlertTriangle, Award, Activity, Crosshair, History, Zap, Brain, TrendingUp, Grid, Cpu, Terminal as TerminalIcon, Shield } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
+import { WeekSchedule, ScheduleSlot, WeeklyStats, DailyStat, Category } from '../types';
+import { Activity, Zap, Brain, Grid, Cpu, Terminal as TerminalIcon, Database, Calendar, Flame, Layers, History } from 'lucide-react';
 
 interface WeeklyReportProps {
   schedule: WeekSchedule;
   lastWeekStats?: WeeklyStats;
+  reportArchive?: WeeklyStats[];
+  dailyStats?: Record<string, DailyStat>; // "YYYY-MM-DD": {c, t}
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -18,16 +20,49 @@ const CATEGORY_COLORS: Record<string, string> = {
   Logistics: '#64748b' // Slate
 };
 
-export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekStats }) => {
+// Heatmap Helper: Generate array of last 100 days
+const getHeatmapDays = (history: Record<string, DailyStat>) => {
+    const days = [];
+    const today = new Date();
+    // Go back 16 weeks (approx 4 months) to fill a nice grid
+    const weeksToShow = 16;
+    const totalDays = weeksToShow * 7; 
+    
+    // Find the start date (ensure it starts on a Monday for alignment)
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - totalDays);
+    // Adjust to previous Monday
+    const dayOfWeek = startDate.getDay();
+    const diff = startDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    startDate.setDate(diff);
+
+    for (let i = 0; i < totalDays; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const stat = history[iso];
+        const percentage = stat && stat.t > 0 ? Math.round((stat.c / stat.t) * 100) : 0;
+        
+        days.push({
+            date: iso,
+            percentage,
+            dayIndex: d.getDay(), // 0=Sun, 1=Mon
+            month: d.toLocaleString('default', { month: 'short' }),
+            isToday: iso === (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'))
+        });
+    }
+    return days;
+};
+
+export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekStats, reportArchive = [], dailyStats = {} }) => {
   
-  // --- 1. DATA PROCESSING ENGINE ---
+  // --- 1. DATA PROCESSING ---
   const analytics = useMemo(() => {
     const categoryStats: Record<string, { total: number; completed: number }> = {};
-    const dailyStats: { day: string; percentage: number; total: number }[] = [];
     let grandTotal = 0;
     let grandCompleted = 0;
 
-    // Process Categories
+    // Process Categories (Current Week)
     Object.values(schedule).flat().forEach((slot: ScheduleSlot) => {
       if (!categoryStats[slot.category]) categoryStats[slot.category] = { total: 0, completed: 0 };
       categoryStats[slot.category].total += 1;
@@ -38,51 +73,79 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
       }
     });
 
-    // Process Daily Heatmap
-    Object.keys(schedule).forEach(day => {
-      const slots = schedule[day];
-      const dayTotal = slots.length;
-      const dayCompleted = slots.filter(s => s.isCompleted).length;
-      dailyStats.push({
-        day: day.substring(0, 3),
-        total: dayTotal,
-        percentage: dayTotal === 0 ? 0 : Math.round((dayCompleted / dayTotal) * 100)
-      });
-    });
-
     const chartData = Object.keys(categoryStats).map(cat => {
       const { total, completed } = categoryStats[cat];
       return {
         name: cat,
+        value: total, // Use total slots for Pie Chart distribution
         completed,
-        total,
         percentage: total === 0 ? 0 : Math.round((completed / total) * 100),
-        fullMark: 100,
       };
-    }).filter(d => d.name !== 'Logistics'); // Hide logistics from main charts for clarity
+    }).filter(d => d.value > 0);
+
+    // Filter for Radar Chart (exclude Logistics maybe?)
+    const radarData = chartData.map(d => ({
+        subject: d.name,
+        A: d.percentage,
+        fullMark: 100
+    }));
 
     const overallScore = grandTotal === 0 ? 0 : Math.round((grandCompleted / grandTotal) * 100);
 
-    // AI Insight Logic
-    const sorted = [...chartData].sort((a, b) => b.percentage - a.percentage);
-    const best = sorted[0];
-    const worst = sorted[sorted.length - 1];
+    // AI Insight
     let insight = "SYSTEM AWAITING DATA INPUT...";
     if (overallScore > 80) insight = "ORBIT STABLE. NEURAL SYNC OPTIMAL. MOMENTUM IS CRITICAL.";
     else if (overallScore > 50) insight = "SYSTEM OPERATIONAL. EFFICIENCY FLUCTUATIONS DETECTED.";
     else if (grandTotal > 0) insight = "SYNC DEGRADED. RE-INITIALIZE CORE ROUTINES IMMEDIATELY.";
 
-    return { chartData, dailyStats, overallScore, best, worst, insight };
+    return { chartData, radarData, overallScore, insight };
   }, [schedule]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  // --- 2. STREAK CALCULATION ---
+  const streakData = useMemo(() => {
+      const dates = Object.keys(dailyStats).sort();
+      let currentStreak = 0;
+      let bestStreak = 0;
+      
+      // Calculate active streak walking backwards from today
+      const today = new Date();
+      // Only verify up to yesterday for strict streak, or include today if active
+      // Simple logic: consecutive days with > 0 completion
+      
+      // We iterate backward
+      for (let i = 0; i < 365; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          const stat = dailyStats[iso];
+          
+          if (stat && stat.c > 0) {
+              currentStreak++;
+          } else if (i === 0) {
+              // If today is 0, we don't break streak yet (day just started)
+              continue;
+          } else {
+              break; 
+          }
+      }
+      return { current: currentStreak };
+  }, [dailyStats]);
+
+  // --- 3. HEATMAP DATA ---
+  const heatmapCells = useMemo(() => getHeatmapDays(dailyStats), [dailyStats]);
+
+  // Custom Tooltip for Pie Chart
+  const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-md">
-          <p className="font-bold text-slate-700 dark:text-white font-mono uppercase tracking-widest text-[9px] mb-1">{label}</p>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].payload.fill || '#22d3ee' }} />
-            <p className="text-lg font-black text-slate-900 dark:text-white">{payload[0].value}%</p>
+        <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-md">
+          <p className="font-bold text-white font-mono uppercase tracking-widest text-[10px] mb-1">{data.name}</p>
+          <div className="text-xs text-slate-400 font-mono">
+             Allocated: <span className="text-white font-bold">{data.value} Blocks</span>
+          </div>
+          <div className="text-xs text-slate-400 font-mono">
+             Efficiency: <span className="text-cyan-400 font-bold">{data.percentage}%</span>
           </div>
         </div>
       );
@@ -91,206 +154,181 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
   };
 
   return (
-    <div className="animate-fade-in space-y-4 sm:space-y-6 pb-32">
+    <div className="animate-fade-in space-y-6 sm:space-y-8 pb-32">
       
-      {/* --- ROW 1: ORBIT RESONANCE & HEATMAP --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        
-        {/* A. ORBIT RESONANCE GAUGE (HERO) */}
-        <div className="lg:col-span-1 relative group p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-white/5 overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
-          <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent" />
+      {/* --- HERO: VISUAL ANALYTICS --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
-            {/* Rotating Outer Rings */}
-            <div className="absolute inset-0 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-full animate-spin-slow" />
-            <div className="absolute inset-4 border border-cyan-500/20 rounded-full animate-spin-fast" style={{ animationDirection: 'reverse' }} />
-            
-            {/* SVG Progress Circle */}
-            <svg className="absolute inset-0 w-full h-full -rotate-90">
-              <circle cx="50%" cy="50%" r="40%" className="fill-none stroke-slate-100 dark:stroke-slate-900 stroke-[12]" />
-              <circle 
-                cx="50%" cy="50%" r="40%" 
-                className="fill-none stroke-cyan-500 stroke-[12] transition-all duration-1000 ease-out"
-                strokeDasharray="251"
-                strokeDashoffset={251 - (251 * analytics.overallScore) / 100}
-                strokeLinecap="round"
-                style={{ filter: 'drop-shadow(0 0 10px rgba(6,182,212,0.5))' }}
-              />
-            </svg>
-
-            {/* Center Data */}
-            <div className="flex flex-col items-center z-10">
-               <Zap className="w-6 h-6 text-cyan-400 mb-1 animate-pulse" />
-               <span className="text-5xl sm:text-6xl font-black italic text-slate-900 dark:text-white tracking-tighter">{analytics.overallScore}</span>
-               <span className="text-[9px] font-mono text-cyan-600 dark:text-cyan-500 uppercase tracking-widest mt-1">Resonance</span>
-            </div>
-          </div>
-          
-          <div className="mt-4 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-            <Activity className="w-3 h-3 text-green-500 dark:text-green-400" />
-            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-              System Status: <span className="text-slate-900 dark:text-white font-bold">{analytics.overallScore > 80 ? 'OVERDRIVE' : analytics.overallScore > 50 ? 'NOMINAL' : 'OFFLINE'}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* B. TEMPORAL HEATMAP & INSIGHT TERMINAL */}
-        <div className="lg:col-span-2 flex flex-col gap-4 sm:gap-6">
-          
-          {/* Heatmap Card */}
-          <div className="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[1.5rem] sm:rounded-[2rem] p-6 sm:p-8 relative overflow-hidden backdrop-blur-md shadow-sm">
-             <div className="absolute top-0 right-0 p-6 opacity-5"><CalendarGrid /></div>
-             <h3 className="text-xs sm:text-sm font-mono text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
-                <Grid className="w-4 h-4 text-purple-400" /> Temporal Consistency
-             </h3>
-             
-             <div className="flex items-end justify-between gap-1 sm:gap-2 h-32 sm:h-40 w-full">
-                {analytics.dailyStats.map((stat, i) => (
-                  <div key={i} className="flex-1 flex flex-col justify-end group gap-2">
-                     <div className="w-full relative">
-                        <div 
-                          className={`w-full rounded-sm transition-all duration-700 ${
-                            stat.percentage === 0 ? 'bg-slate-200 dark:bg-slate-900 h-1' : 
-                            stat.percentage < 40 ? 'bg-purple-300 dark:bg-purple-900/40 shadow-[0_0_5px_rgba(88,28,135,0.2)]' : 
-                            stat.percentage < 80 ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 
-                            'bg-slate-900 dark:bg-white shadow-[0_0_15px_rgba(255,255,255,0.6)]'
-                          }`}
-                          style={{ height: `${Math.max(stat.percentage, 5)}%` }}
-                        />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[9px] px-2 py-1 rounded font-mono">
-                          {stat.percentage}%
-                        </div>
-                     </div>
-                     <span className="text-[8px] sm:text-[10px] text-center font-mono text-slate-400 dark:text-slate-600 uppercase group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors">
-                        {stat.day}
-                     </span>
+          {/* 1. STREAK & HEADER */}
+          <div className="col-span-1 p-6 sm:p-8 rounded-[2rem] bg-gradient-to-br from-orange-900/10 to-red-900/10 border border-orange-500/20 relative overflow-hidden flex flex-col justify-between h-full min-h-[250px]">
+              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
+              <div className="relative z-10">
+                  <div className="flex items-center gap-2 text-orange-500 font-mono text-[10px] uppercase tracking-[0.3em] mb-2">
+                      <Flame className="w-4 h-4 animate-pulse" /> Kinetic Streak
                   </div>
-                ))}
-             </div>
+                  <div className="flex items-baseline gap-2">
+                      <h2 className="text-7xl font-black italic text-white tracking-tighter drop-shadow-lg">{streakData.current}</h2>
+                      <span className="text-sm font-bold text-orange-400 uppercase tracking-widest">Days Active</span>
+                  </div>
+              </div>
+              <div className="relative z-10 mt-6">
+                  <div className="w-full bg-black/30 h-1.5 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-orange-500 to-red-600 w-full animate-shimmer" />
+                  </div>
+                  <p className="text-[9px] text-orange-400/60 font-mono mt-2 uppercase tracking-widest text-right">Momentum Critical</p>
+              </div>
+              
+              {/* Background FX */}
+              <div className="absolute -bottom-10 -right-10 text-orange-500/10">
+                  <Flame className="w-48 h-48" />
+              </div>
           </div>
 
-          {/* Neural Insight Terminal */}
-          <div className="bg-slate-50 dark:bg-black border border-emerald-500/20 rounded-2xl p-4 sm:p-6 font-mono relative overflow-hidden group">
-             <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-             <div className="flex items-start gap-3 relative z-10">
-               <TerminalIcon className="w-5 h-5 text-emerald-500 mt-1 flex-shrink-0" />
-               <div className="space-y-1">
-                 <p className="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 uppercase tracking-widest">Sys_Admin_Log // {new Date().toLocaleDateString()}</p>
-                 <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 uppercase leading-relaxed typing-effect">
-                   {">"} {analytics.insight}
-                 </p>
-                 {analytics.best && (
-                   <p className="text-[10px] text-slate-500 mt-2">
-                     {">"} DOMINANT PROTOCOL: <span className="text-slate-900 dark:text-white">{analytics.best.name} ({analytics.best.percentage}%)</span>
-                   </p>
-                 )}
-                 {analytics.worst && (
-                    <p className="text-[10px] text-slate-500">
-                      {">"} SYSTEM FAILURE: <span className="text-red-500 dark:text-red-400">{analytics.worst.name} ({analytics.worst.percentage}%)</span>
-                    </p>
-                 )}
-               </div>
-             </div>
+          {/* 2. CATEGORY BREAKDOWN (DONUT CHART) */}
+          <div className="col-span-1 lg:col-span-2 p-6 sm:p-8 rounded-[2rem] bg-[#0a0a0a] border border-white/10 flex flex-col sm:flex-row items-center gap-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 opacity-5"><Layers className="w-24 h-24 text-cyan-500" /></div>
+              
+              {/* Chart */}
+              <div className="relative w-48 h-48 flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                          <Pie
+                              data={analytics.chartData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                              stroke="none"
+                          >
+                              {analytics.chartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.name] || '#333'} />
+                              ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center Stat */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-3xl font-black italic text-white">{analytics.overallScore}%</span>
+                      <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Efficiency</span>
+                  </div>
+              </div>
+
+              {/* Legend & Stats */}
+              <div className="flex-1 w-full">
+                  <h3 className="text-lg font-black italic text-white uppercase tracking-tight mb-4 flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-cyan-500" /> Time Distribution
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                      {analytics.chartData.map(d => (
+                          <div key={d.name} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group">
+                              <div className="w-1 h-8 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[d.name] }} />
+                              <div>
+                                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wide group-hover:text-white">{d.name}</div>
+                                  <div className="text-[9px] font-mono text-slate-500">
+                                      {d.percentage}% Comp.
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
           </div>
-        </div>
       </div>
 
-      {/* --- ROW 2: ADVANCED METRICS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        
-        {/* C. FREQUENCY VISUALIZER (BAR CHART REDESIGN) */}
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden shadow-lg">
-          <div className="absolute -right-10 -bottom-10 opacity-5">
-             <TrendingUp className="w-48 h-48 text-cyan-500" />
-          </div>
-          <h3 className="text-xs sm:text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-cyan-400" /> Protocol Output Levels
-          </h3>
-          <div className="h-40 sm:h-64 w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={analytics.chartData} barGap={0} barCategoryGap="20%">
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#94a3b8" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tick={{fill: '#94a3b8', fontFamily: 'Space Grotesk', fontSize: 9}}
-                  dy={10}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.03)'}} />
-                <Bar dataKey="percentage" radius={[2, 2, 0, 0]}>
-                  {analytics.chartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={CATEGORY_COLORS[entry.name] || '#ffffff'} 
-                      className="opacity-80 hover:opacity-100 transition-all cursor-pointer hover:filter drop-shadow-[0_0_8px_rgba(0,0,0,0.1)] dark:hover:filter dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]"
-                    />
+      {/* --- HEATMAP CALENDAR --- */}
+      <div className="p-6 sm:p-8 rounded-[2rem] bg-[#050505] border border-white/10 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-6 relative z-10">
+              <div className="flex items-center gap-2 text-emerald-500 font-mono text-[10px] uppercase tracking-[0.3em]">
+                  <Grid className="w-4 h-4" /> Neural Activity Log
+              </div>
+              <div className="flex gap-1">
+                  {[0, 25, 50, 75, 100].map(opacity => (
+                      <div key={opacity} className="w-3 h-3 rounded-sm" style={{ backgroundColor: opacity === 0 ? '#1e293b' : `rgba(16, 185, 129, ${opacity / 100})` }} />
                   ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+              </div>
           </div>
-        </div>
 
-        {/* D. FOCUS VECTOR (RADAR CHART REDESIGN) */}
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden shadow-lg flex flex-col">
-          <div className="absolute top-0 right-0 p-6 opacity-10">
-             <Crosshair className="w-16 h-16 text-emerald-500 animate-spin-slow" />
+          <div className="relative z-10 overflow-x-auto custom-scrollbar pb-2">
+              <div className="flex gap-1 min-w-max">
+                  {/* We need to render columns (weeks). So chunk the days by 7 */}
+                  {Array.from({ length: Math.ceil(heatmapCells.length / 7) }).map((_, colIndex) => (
+                      <div key={colIndex} className="flex flex-col gap-1">
+                          {heatmapCells.slice(colIndex * 7, (colIndex + 1) * 7).map((day) => {
+                              const intensity = day.percentage === 0 ? 0 : 
+                                                day.percentage < 40 ? 0.3 : 
+                                                day.percentage < 70 ? 0.6 : 
+                                                day.percentage < 90 ? 0.8 : 1;
+                              
+                              return (
+                                  <div 
+                                      key={day.date}
+                                      className={`w-3 h-3 sm:w-4 sm:h-4 rounded-[2px] sm:rounded-sm transition-all duration-300 group relative ${intensity === 0 ? 'bg-slate-800/50' : 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.4)]'}`}
+                                      style={{ opacity: intensity || 1 }}
+                                  >
+                                      {/* Tooltip */}
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                          <div className="bg-black text-white text-[9px] font-mono px-2 py-1 rounded border border-white/20 whitespace-nowrap">
+                                              {day.date}: {day.percentage}%
+                                          </div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  ))}
+              </div>
           </div>
-          <h3 className="text-xs sm:text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-2">
-            Life Balance Matrix
+      </div>
+
+      {/* --- RADAR CHART (FOCUS) --- */}
+      <div className="p-6 sm:p-8 rounded-[2rem] bg-slate-900/30 border border-white/5 relative overflow-hidden">
+          <h3 className="text-xs font-bold font-mono text-purple-400 uppercase tracking-[0.2em] mb-6 text-center">
+             Attribute Matrix
           </h3>
-          <p className="text-[9px] text-emerald-600/60 dark:text-emerald-500/60 mb-4 font-mono uppercase tracking-widest">Targeting Optimization</p>
-          
-          <div className="flex-1 min-h-[250px] w-full relative min-w-0">
-             {/* Background Target UI */}
-             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-               <div className="w-[70%] h-[70%] border border-emerald-500/30 rounded-full" />
-               <div className="w-[40%] h-[40%] border border-emerald-500/30 rounded-full" />
-               <div className="w-full h-[1px] bg-emerald-500/20 absolute top-1/2 left-0" />
-               <div className="h-full w-[1px] bg-emerald-500/20 absolute top-0 left-1/2" />
-             </div>
-
-             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={analytics.chartData}>
-                 <PolarGrid stroke="#94a3b8" strokeOpacity={0.3} />
-                 <PolarAngleAxis 
-                   dataKey="name" 
-                   tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'Space Grotesk' }} 
-                 />
-                 <Radar 
-                   name="Stats" 
-                   dataKey="percentage" 
-                   stroke="#10b981" 
-                   strokeWidth={2}
-                   fill="#10b981" 
-                   fillOpacity={0.2} 
-                 />
-                 <Tooltip content={<CustomTooltip />} />
-               </RadarChart>
+          <div className="h-64 w-full">
+             <ResponsiveContainer width="100%" height="100%">
+                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={analytics.radarData}>
+                     <PolarGrid stroke="#334155" />
+                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'Space Grotesk' }} />
+                     <Radar name="Orbit" dataKey="A" stroke="#d946ef" strokeWidth={2} fill="#d946ef" fillOpacity={0.2} />
+                     <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                        itemStyle={{ color: '#e2e8f0', fontSize: '12px', fontFamily: 'Space Grotesk' }}
+                     />
+                 </RadarChart>
              </ResponsiveContainer>
           </div>
-        </div>
-
       </div>
 
-      {/* --- ROW 3: ARCHIVE DATA (CONDENSED) --- */}
-      {lastWeekStats && (
-        <div className="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-               <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-400"><History className="w-4 h-4" /></div>
-               <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Archive: Last Cycle</h4>
-                  <p className="text-[9px] text-slate-500 font-mono">{lastWeekStats.dateRange}</p>
-               </div>
-            </div>
-            <div className="text-right">
-               <span className="text-xl font-black italic text-slate-700 dark:text-slate-300">{lastWeekStats.percentage}%</span>
-               <span className="text-[9px] text-slate-500 dark:text-slate-600 block uppercase">Efficiency</span>
-            </div>
-        </div>
-      )}
+      {/* --- ARCHIVE SECTION (Old Logic) --- */}
+      <div className="space-y-6 pt-6 border-t border-white/5 opacity-60 hover:opacity-100 transition-opacity">
+          <h3 className="text-sm font-black italic text-slate-500 uppercase tracking-tighter flex items-center gap-2">
+              <Database className="w-4 h-4" /> Legacy Data Logs
+          </h3>
+          <div className="p-6 rounded-[2rem] bg-[#050505] border border-white/10 flex flex-col max-h-[300px] overflow-y-auto custom-scrollbar">
+              {reportArchive.length === 0 ? (
+                  <div className="h-24 flex flex-col items-center justify-center text-slate-600">
+                      <History className="w-6 h-6 mb-2 opacity-50" />
+                      <span className="text-[10px] font-mono uppercase tracking-widest">Vault Empty</span>
+                  </div>
+              ) : (
+                  [...reportArchive].reverse().map((report, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all mb-2">
+                          <div className="flex items-center gap-3">
+                              <div className="text-xs font-bold text-white uppercase tracking-wide">
+                                  Week of {new Date(report.weekStart).getDate()} {report.month.substring(0,3)}
+                              </div>
+                              <span className="w-px h-3 bg-white/20" />
+                              <div className="text-[10px] font-mono text-cyan-400">{report.percentage}% EFFICIENCY</div>
+                          </div>
+                      </div>
+                  ))
+              )}
+          </div>
+      </div>
 
     </div>
   );

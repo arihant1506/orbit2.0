@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleSlot, UniversitySchedule, WeekSchedule, WaterConfig, OrbitNotification, UserPreferences } from '../types';
 import { Bell, Clock, Droplet, GraduationCap, Zap, X, AlertTriangle, Activity, ChevronRight, Timer } from 'lucide-react';
+import { playOrbitSound } from '../utils/audio';
 
 interface NotificationSystemProps {
   schedule: WeekSchedule;
@@ -81,59 +82,20 @@ const sendSystemNotification = async (title: string, body: string, tag: string, 
                 return;
             }
         }
-        // Desktop Fallback
-        new Notification(title, { 
-            body, 
-            icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
-            tag,
-            requireInteraction: urgent 
-        });
-    } catch (e) {
-        console.error("Notification failed", e);
-    }
-};
-
-// --- SOUND FX ---
-const playAlert = (urgency: 'normal' | 'critical') => {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    try {
-        const ctx = new AudioContext();
-        const t = ctx.currentTime;
         
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        if (urgency === 'critical') {
-            // Urgent Alarm (Sawtooth)
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(800, t);
-            osc.frequency.linearRampToValueAtTime(1200, t + 0.1);
-            osc.frequency.linearRampToValueAtTime(800, t + 0.2);
-            osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
-            
-            gain.gain.setValueAtTime(0.2, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
-            
-            osc.start(t);
-            osc.stop(t + 0.6);
-        } else {
-            // Standard Ping (Sine)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, t);
-            osc.frequency.exponentialRampToValueAtTime(400, t + 0.3);
-            
-            gain.gain.setValueAtTime(0.1, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-            
-            osc.start(t);
-            osc.stop(t + 0.3);
+        // Desktop Fallback - Enforce try/catch strongly to avoid "Illegal constructor"
+        try {
+            new Notification(title, { 
+                body, 
+                icon: 'https://cdn-icons-png.flaticon.com/512/3665/3665939.png',
+                tag,
+                requireInteraction: urgent 
+            });
+        } catch (innerError) {
+            console.warn("Desktop notification constructor failed:", innerError);
         }
     } catch (e) {
-        // Silently fail audio if context cannot be created (e.g. strict autoplay policy)
+        console.error("Notification failed", e);
     }
 };
 
@@ -185,7 +147,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
             if (type === 'class' && enableAcademic) {
                 // 15 Minute Warning
                 if (diff <= 15 && diff > 5 && !alertHistory.current.has(`${uniqueId}-15`)) {
-                    playAlert('normal');
+                    playOrbitSound('bell_normal');
                     sendSystemNotification(
                         `ACADEMIC WARNING: ${title}`, 
                         `T-Minus 15 Minutes. Venue: ${subtitle}. Prepare visuals.`,
@@ -197,7 +159,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
                 
                 // 5 Minute CRITICAL Warning
                 if (diff <= 5 && diff > 0 && !alertHistory.current.has(`${uniqueId}-5`)) {
-                    playAlert('critical');
+                    playOrbitSound('alarm_critical');
                     sendSystemNotification(
                         `CRITICAL START: ${title}`, 
                         `T-Minus 5 Minutes! Movement required immediately.`,
@@ -218,7 +180,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ schedule
                     const shouldNotify = (type === 'water' && enableWater) || (type === 'task' && enableSchedule);
                     
                     if (shouldNotify) {
-                        playAlert('normal');
+                        playOrbitSound('bell_normal');
                         sendSystemNotification(
                             type === 'water' ? `HYDRATION: ${title}` : `PROTOCOL: ${title}`, 
                             type === 'water' ? 'Bio-rhythm requires intake.' : `Upcoming: ${subtitle}`,

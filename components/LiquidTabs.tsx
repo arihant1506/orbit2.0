@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useSpring, useTransform, useVelocity } from 'framer-motion';
 import { playOrbitSound } from '../utils/audio';
@@ -75,13 +76,17 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const resizeObserver = new ResizeObserver(() => {
-        // Debounce slightly to ensure DOM reflow is complete
-        requestAnimationFrame(() => updateHighlight());
-    });
-
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+    if (typeof ResizeObserver !== 'undefined') {
+        try {
+            const resizeObserver = new ResizeObserver(() => {
+                requestAnimationFrame(() => updateHighlight());
+            });
+            resizeObserver.observe(containerRef.current);
+            return () => resizeObserver.disconnect();
+        } catch (e) {
+            console.warn("ResizeObserver failed in Tabs:", e);
+        }
+    }
   }, [updateHighlight]);
 
   const handleTabClick = (id: string) => {

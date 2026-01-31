@@ -8,7 +8,7 @@ import { NotificationControl } from './components/NotificationControl';
 import { WelcomeLoader } from './components/WelcomeLoader'; 
 import { CompactWidget } from './components/CompactWidget'; 
 import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_SCHEDULE, BLANK_UNI_SCHEDULE } from './constants';
-import { WeekSchedule, ThemeMode, UserProfile, ScheduleSlot, WaterConfig, ClassSession, NoteItem } from './types';
+import { WeekSchedule, ThemeMode, UserProfile, ScheduleSlot, WaterConfig, ClassSession, NoteItem, WeeklyStats, DailyStat } from './types';
 import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut, Save, CheckCircle2, ShieldCheck, Cloud } from 'lucide-react'; 
 import { LiquidTabs } from './components/LiquidTabs';
 import { getUserFromCloud, syncUserToCloud, loginUser, registerUser, getGlobalUsers, deleteGlobalUser, deleteCurrentUser } from './utils/db';
@@ -25,13 +25,20 @@ const NotesView = React.lazy(() => import('./components/NotesView').then(m => ({
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// Helper: Get the ISO string for the Monday of the current real-world week
 const getMondayOfCurrentWeek = () => {
   const d = new Date();
   const day = d.getDay();
+  // Adjust so Sunday (0) is treated as the last day of the week, not the first
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
   monday.setHours(0, 0, 0, 0);
   return monday.toISOString();
+};
+
+// Helper: Get YYYY-MM-DD from a Date object
+const getLocalISODate = (d: Date) => {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 };
 
 const parseTime = (str: string): number => {
@@ -213,20 +220,123 @@ export const App: React.FC = () => {
   // Initialize Realtime Sync Hook
   useRealtimeSync(currentUser, setUsers);
 
+  // --- LOGIC: HISTORY SYNC (HEATMAP) ---
+  // Syncs the current week's performance into the 'dailyStats' persistent record
+  useEffect(() => {
+    if (!currentUser || !users[currentUser]) return;
+    
+    // We only update if schedule changes.
+    // Calculate stats for all days in the CURRENT week and update the user profile
+    const profile = users[currentUser];
+    const schedule = profile.schedule;
+    const mondayDate = new Date(getMondayOfCurrentWeek());
+    
+    const newDailyStats: Record<string, DailyStat> = { ...(profile.dailyStats || {}) };
+    let hasChanges = false;
+
+    DAYS_OF_WEEK.forEach((dayName, idx) => {
+       const dayDate = new Date(mondayDate);
+       dayDate.setDate(mondayDate.getDate() + idx);
+       const dateStr = getLocalISODate(dayDate);
+       
+       const slots = schedule[dayName] || [];
+       if (slots.length > 0) {
+           const completed = slots.filter(s => s.isCompleted).length;
+           const total = slots.length;
+           
+           // Only update if changed to avoid infinite loop trigger
+           if (!newDailyStats[dateStr] || newDailyStats[dateStr].c !== completed || newDailyStats[dateStr].t !== total) {
+               newDailyStats[dateStr] = { c: completed, t: total };
+               hasChanges = true;
+           }
+       }
+    });
+
+    if (hasChanges) {
+        setUsers(prev => ({
+            ...prev,
+            [currentUser]: {
+                ...prev[currentUser],
+                dailyStats: newDailyStats
+            }
+        }));
+    }
+  }, [users, currentUser]); // Careful: users dependency might trigger loop if we setUsers inside. 
+  // Optimization: The 'hasChanges' check prevents infinite loop.
+
+  // --- LOGIC: WEEKLY RESET & ARCHIVING ---
+  useEffect(() => {
+    if (!currentUser || !users[currentUser]) return;
+
+    const profile = users[currentUser];
+    const currentMonday = getMondayOfCurrentWeek();
+    
+    if (profile.lastResetDate && new Date(currentMonday) > new Date(profile.lastResetDate)) {
+        console.log(`[Chronicle] New week detected. Current: ${currentMonday}, Last: ${profile.lastResetDate}`);
+        
+        let grandTotal = 0;
+        let grandCompleted = 0;
+        const categoryCounts: Record<string, number> = {};
+
+        Object.values(profile.schedule).flat().forEach((slot: ScheduleSlot) => {
+            grandTotal++;
+            if (slot.isCompleted) grandCompleted++;
+            if (!categoryCounts[slot.category]) categoryCounts[slot.category] = 0;
+            if (slot.isCompleted) categoryCounts[slot.category]++;
+        });
+
+        let dominant = "General";
+        let maxCount = 0;
+        Object.entries(categoryCounts).forEach(([cat, count]) => {
+            if (count > maxCount) { maxCount = count; dominant = cat; }
+        });
+
+        const percentage = grandTotal === 0 ? 0 : Math.round((grandCompleted / grandTotal) * 100);
+        const lastDateObj = new Date(profile.lastResetDate);
+        const monthName = lastDateObj.toLocaleString('default', { month: 'long' });
+
+        const newStat: WeeklyStats = {
+            id: `${lastDateObj.getFullYear()}-W${Math.ceil((lastDateObj.getDate() + 6 - lastDateObj.getDay()) / 7)}`,
+            weekStart: profile.lastResetDate,
+            month: monthName,
+            year: lastDateObj.getFullYear(),
+            completed: grandCompleted,
+            total: grandTotal,
+            percentage: percentage,
+            dominantCategory: dominant
+        };
+
+        setUsers(prev => {
+            const user = prev[currentUser];
+            const freshSchedule = { ...user.schedule };
+            Object.keys(freshSchedule).forEach(day => {
+                freshSchedule[day] = freshSchedule[day].map(slot => ({ ...slot, isCompleted: false }));
+            });
+
+            return {
+                ...prev,
+                [currentUser]: {
+                    ...user,
+                    schedule: freshSchedule,
+                    lastResetDate: currentMonday,
+                    reportArchive: [...(user.reportArchive || []), newStat],
+                    lastWeekStats: newStat
+                }
+            };
+        });
+        playOrbitSound('power_up');
+    }
+  }, [currentUser, users]);
+
   // --- PERSISTENCE FIX: FETCH ON MOUNT/RELOAD ---
   useEffect(() => {
     const fetchLatestProfile = async () => {
       if (currentUser) {
         setIsSyncing(true);
         try {
-          // Always try to get the latest data from the cloud on mount
           const cloudProfile = await getUserFromCloud(currentUser);
           if (cloudProfile) {
-            console.log('[Persistence] Cloud profile loaded for', currentUser);
-            setUsers(prev => ({
-              ...prev,
-              [currentUser]: cloudProfile
-            }));
+            setUsers(prev => ({ ...prev, [currentUser]: cloudProfile }));
           }
         } catch (e) {
           console.error('[Persistence] Failed to fetch profile', e);
@@ -235,7 +345,6 @@ export const App: React.FC = () => {
         }
       }
     };
-
     fetchLatestProfile();
   }, [currentUser]);
 
@@ -245,11 +354,10 @@ export const App: React.FC = () => {
     root.classList.add('dark');
     root.classList.remove('light');
 
-    // CHECK FOR WIDGET MODE (Standalone)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'widget') {
         setIsWidgetMode(true);
-        setShowWelcome(false); // Skip intro for widget
+        setShowWelcome(false); 
     }
 
     const handler = (e: any) => {
@@ -273,14 +381,12 @@ export const App: React.FC = () => {
   // Sync Logic (Auto-Save on Change)
   useEffect(() => {
       const sync = async () => {
-        // Only auto-sync if we are NOT in the middle of a logout procedure to avoid conflicts
         if (currentUser && users[currentUser] && !isLoggingOut) {
             await syncUserToCloud(users[currentUser]);
             setLastSyncTime(new Date());
         }
       };
       
-      // Aggressive Sync: 500ms debounce (Reduced from 1000ms for safety)
       const t = setTimeout(sync, 500);
       return () => clearTimeout(t);
   }, [users, currentUser, isLoggingOut]);
@@ -347,6 +453,8 @@ export const App: React.FC = () => {
                         academicSchedule: initialAcademic,
                         notes: [],
                         lastResetDate: getMondayOfCurrentWeek(),
+                        reportArchive: [],
+                        dailyStats: {}, // Init daily stats
                         preferences: { theme: 'dark', startOfWeek: 'Monday', timeFormat: '12h', notifications: { water: true, schedule: true, academic: true } }
                      };
                      return { ...prev, [normalizedUsername]: newProfile };
@@ -374,32 +482,24 @@ export const App: React.FC = () => {
 
   const handleLogout = useCallback(async () => {
     if (currentUser && users[currentUser]) {
-        // 1. Enter Blocking State
         setIsLoggingOut(true);
         try {
-            // 2. Force Final Sync
             await syncUserToCloud(users[currentUser]);
-            console.log('Final sync before logout complete.');
         } catch (e) {
             console.error('Logout sync warning:', e);
-            // We proceed to logout even if sync fails, but user saw the loading spinner
         }
     }
-    
-    // 3. Clear Session
     setCurrentUser(null);
     localStorage.removeItem('orbit_active_user');
     localStorage.removeItem('orbit_jwt');
-    
-    // 4. Reset UI State
     setIsLoggingOut(false);
-    setViewMode('daily'); // Reset view for next login
+    setViewMode('daily');
   }, [currentUser, users]);
 
   const handleDeleteAccount = useCallback(async () => {
     if (!currentUser) return;
     playOrbitSound('delete');
-    setIsLoggingOut(true); // Show loader
+    setIsLoggingOut(true); 
     await deleteCurrentUser();
     setUsers(prev => { const next = { ...prev }; delete next[currentUser]; return next; });
     setCurrentUser(null);
@@ -445,23 +545,18 @@ export const App: React.FC = () => {
     setUsers(prev => ({ ...prev, [currentUser]: { ...prev[currentUser], waterConfig: config } }));
   }, [currentUser]);
 
-  // Special handler for widget water toggle
   const handleToggleWater = useCallback((id: string) => {
       if (!currentUser) return;
       setUsers(prev => {
           const profile = prev[currentUser];
           if (!profile.waterConfig) return prev;
-          
-          // Safeguard: Ensure progress array exists
           const currentProgress = profile.waterConfig.progress || [];
-          
           let newProgress = [...currentProgress];
           if (newProgress.includes(id)) {
               newProgress = newProgress.filter(pid => pid !== id);
           } else {
               newProgress.push(id);
           }
-          
           return {
               ...prev,
               [currentUser]: {
@@ -494,10 +589,8 @@ export const App: React.FC = () => {
 
   // --- DERIVED DATA ---
   const userProfile = currentUser ? users[currentUser] : undefined;
-  // SAFE ACCESS: Use optional chaining to prevent crash on legacy profiles
   const currentAcademicSchedule = userProfile?.academicSchedule || { Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: [] };
   const currentDayName = DAYS_OF_WEEK[currentDayIndex];
-  // SAFE ACCESS: Use optional chaining here as well
   const currentSlots = userProfile?.schedule?.[currentDayName] || [];
 
   // Helper for Widget Mode Data
@@ -522,7 +615,6 @@ export const App: React.FC = () => {
           return start > currentMinutes;
       });
 
-      // Safely access notes array
       const notes = Array.isArray(userProfile?.notes) ? userProfile.notes : [];
       const activeNote = notes.filter(n => !n.isCompleted).sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0];
 
@@ -532,7 +624,7 @@ export const App: React.FC = () => {
   const viewTabs = useMemo(() => [
     { id: 'daily', label: 'Daily' },
     { id: 'notes', label: 'Archive' },
-    { id: 'weekly', label: 'Report' },
+    { id: 'weekly', label: 'Chronicle' },
     { id: 'academic', label: 'Classes' },
     { id: 'hydration', label: 'Hydration' },
     { id: 'profile', label: 'Profile' },
@@ -548,12 +640,10 @@ export const App: React.FC = () => {
       
       <GlossyBackground />
 
-      {/* --- SYSTEM OVERLAYS --- */}
       <AnimatePresence>
         {isLoggingOut && <LogoutLoader />}
       </AnimatePresence>
 
-      {/* --- WIDGET MODE (WEDGE) --- */}
       <AnimatePresence>
         {isWidgetMode && userProfile && (
             <CompactWidget 
@@ -562,7 +652,6 @@ export const App: React.FC = () => {
                 activeNote={getWidgetData().activeNote}
                 waterConfig={userProfile.waterConfig}
                 onExit={() => {
-                    // If in popup, close it. If in app, toggle off.
                     if (window.opener) { window.close(); } else { setIsWidgetMode(false); }
                 }}
                 onToggleSlot={(id) => handleToggleSlot(currentDayName, id)}
@@ -571,7 +660,6 @@ export const App: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* --- WELCOME LOADER LOGIC --- */}
       <AnimatePresence mode="wait">
         {showWelcome ? (
             <WelcomeLoader key="welcome-loader" onComplete={() => setShowWelcome(false)} />
@@ -599,7 +687,6 @@ export const App: React.FC = () => {
                         />
                         )}
 
-                        {/* NAVBAR */}
                         <motion.nav 
                             initial={{ y: -100, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
@@ -670,7 +757,6 @@ export const App: React.FC = () => {
                             </div>
                         </motion.nav>
 
-                        {/* MAIN CONTENT */}
                         <motion.main 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -708,7 +794,12 @@ export const App: React.FC = () => {
                                         onUpdateNotes={handleUpdateNotes}
                                     />
                                 ) : viewMode === 'weekly' && userProfile ? (
-                                    <WeeklyReport schedule={userProfile.schedule} lastWeekStats={userProfile.lastWeekStats} />
+                                    <WeeklyReport 
+                                        schedule={userProfile.schedule} 
+                                        lastWeekStats={userProfile.lastWeekStats}
+                                        reportArchive={userProfile.reportArchive || []}
+                                        dailyStats={userProfile.dailyStats || {}} // Pass history
+                                    />
                                 ) : viewMode === 'academic' && userProfile ? (
                                     <AcademicView 
                                         schedule={currentAcademicSchedule}

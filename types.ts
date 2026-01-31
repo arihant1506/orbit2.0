@@ -49,10 +49,20 @@ export interface UniversitySchedule {
 }
 
 export interface WeeklyStats {
+  id: string; // e.g. "2023-W42"
+  weekStart: string; // ISO Date of the Monday
+  month: string; // "October"
+  year: number;
   completed: number;
   total: number;
   percentage: number;
-  dateRange: string;
+  dominantCategory: string;
+}
+
+// New: For Heatmap & Streak
+export interface DailyStat {
+  c: number; // completed count
+  t: number; // total count
 }
 
 export interface NotificationPreferences {
@@ -71,16 +81,18 @@ export interface UserPreferences {
 export interface UserProfile {
   username: string;
   password?: string;
-  email?: string;       // New: For profile identity
-  avatar?: string;      // New: Profile picture URL/Base64
+  email?: string;       
+  avatar?: string;      
   joinedDate: string;
   schedule: WeekSchedule;
   academicSchedule: UniversitySchedule; 
-  notes?: NoteItem[];   // New: Notes array
-  lastResetDate?: string; 
-  lastWeekStats?: WeeklyStats;
+  notes?: NoteItem[];   
+  lastResetDate: string; // ISO String of the Monday of the current active week
+  lastWeekStats?: WeeklyStats; // Legacy support
+  reportArchive?: WeeklyStats[]; 
+  dailyStats?: Record<string, DailyStat>; // Persistent history: "YYYY-MM-DD": { c: 5, t: 10 }
   waterConfig?: WaterConfig;
-  preferences?: UserPreferences; // New: Local settings
+  preferences?: UserPreferences; 
 }
 
 export interface AuthState {

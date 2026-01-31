@@ -7,9 +7,6 @@ import { playOrbitSound } from '../utils/audio';
 import { AromaOrb } from './AromaOrb';
 import { LiquidSlider } from './LiquidSlider';
 
-// Bypass strict type checking for framer-motion components in this environment
-const MotionDiv = motion.div as any;
-
 // --- ENHANCED THEME CONFIGURATION ---
 // High-Contrast Glossy Theme for "Classy Dark" mode
 const THEME_CONFIG: Record<Category, any> = {

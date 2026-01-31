@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   motion, 
@@ -36,16 +37,18 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
     // Initial check
     updateWidth();
 
-    // Use ResizeObserver for reliable element resize detection
-    const observer = new ResizeObserver(() => {
-        updateWidth();
-    });
-
-    observer.observe(constraintsRef.current);
-
-    return () => {
-        observer.disconnect();
-    };
+    // Safe ResizeObserver check
+    if (typeof ResizeObserver !== 'undefined') {
+        try {
+            const observer = new ResizeObserver(() => {
+                updateWidth();
+            });
+            observer.observe(constraintsRef.current);
+            return () => observer.disconnect();
+        } catch (e) {
+            console.warn("ResizeObserver failed to initialize:", e);
+        }
+    }
   }, []);
 
   // --- PHYSICS ENGINE ---
