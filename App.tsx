@@ -379,6 +379,7 @@ export const App: React.FC = () => {
   }, [installPrompt]);
 
   // Sync Logic (Auto-Save on Change)
+  // This hook detects ANY change in the user object and sends it to the cloud
   useEffect(() => {
       const sync = async () => {
         if (currentUser && users[currentUser] && !isLoggingOut) {
@@ -387,7 +388,7 @@ export const App: React.FC = () => {
         }
       };
       
-      const t = setTimeout(sync, 500);
+      const t = setTimeout(sync, 1000); // Debounce sync by 1s
       return () => clearTimeout(t);
   }, [users, currentUser, isLoggingOut]);
 
@@ -567,10 +568,18 @@ export const App: React.FC = () => {
       });
   }, [currentUser]);
 
+  // Updated to properly merge updates
   const handleUpdateUser = useCallback((updates: Partial<UserProfile>) => {
     if (!currentUser) return;
     setUsers(prev => {
-      const updatedProfile = { ...prev[currentUser], ...updates };
+      const updatedProfile = { 
+          ...prev[currentUser], 
+          ...updates,
+          // Deep merge preferences if they exist in updates
+          preferences: updates.preferences 
+            ? { ...prev[currentUser].preferences, ...updates.preferences } 
+            : prev[currentUser].preferences
+      };
       return { ...prev, [currentUser]: updatedProfile };
     });
   }, [currentUser]);

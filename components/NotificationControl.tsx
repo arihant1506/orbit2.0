@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, BellRing, Droplet, Clock, GraduationCap, Zap, Power, Settings, AlertTriangle, Check, Shield, Activity, Volume2, VolumeX } from 'lucide-react';
+import { Bell, BellRing, Droplet, Clock, GraduationCap, Zap, Power, Settings, AlertTriangle, Check, Shield, Activity, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPreferences } from '../types';
 import { playOrbitSound } from '../utils/audio';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { supabase } from '../utils/supabase';
 
 interface NotificationControlProps {
   preferences: UserPreferences;
@@ -12,24 +14,18 @@ interface NotificationControlProps {
 
 export const NotificationControl: React.FC<NotificationControlProps> = ({ preferences, onUpdate }) => {
   const [isOpen, setIsOpen] = useState(false);
-  // Default to 'denied' if not supported to prevent access attempts
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSupported, setIsSupported] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // New Push Hook
+  const { subscribeToPush, loading: pushLoading } = usePushNotifications();
 
   // Safe check for Notification API
   useEffect(() => {
     if (typeof Notification !== 'undefined') {
         setIsSupported(true);
         setPermission(Notification.permission);
-        
-        // Poll for changes
-        const interval = setInterval(() => {
-            if (typeof Notification !== 'undefined') {
-                setPermission(Notification.permission);
-            }
-        }, 1000);
-        return () => clearInterval(interval);
     } else {
         setIsSupported(false);
         setPermission('denied');
@@ -47,23 +43,36 @@ export const NotificationControl: React.FC<NotificationControlProps> = ({ prefer
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const requestPermission = async () => {
+  const handleSystemAccess = async () => {
     playOrbitSound('click');
     if (!isSupported) {
         alert("Notifications are not supported in this environment.");
         return;
     }
     
-    if (permission === 'denied') {
-        alert("System notifications are blocked. Please enable them in your browser settings.");
-        return;
-    }
-    
+    // 1. Request Browser Permission (Frontend)
     try {
         const result = await Notification.requestPermission();
         setPermission(result);
-        if (result === 'granted') playOrbitSound('power_up');
-        else playOrbitSound('error');
+        
+        if (result === 'granted') {
+            // 2. Subscribe to Backend (VAPID)
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const success = await subscribeToPush(user.id);
+                if (success) {
+                    playOrbitSound('power_up');
+                    alert("Secure Uplink Established. You will receive alerts even when offline.");
+                } else {
+                    playOrbitSound('error');
+                    alert("Failed to sync with server. Check console.");
+                }
+            } else {
+                alert("Please login to enable cloud notifications.");
+            }
+        } else {
+            playOrbitSound('error');
+        }
     } catch (e) {
         console.error("Permission request failed", e);
     }
@@ -137,21 +146,21 @@ export const NotificationControl: React.FC<NotificationControlProps> = ({ prefer
                     </div>
 
                     <button 
-                        onClick={requestPermission}
-                        disabled={isMasterEnabled || !isSupported}
-                        className={`w-full relative group overflow-hidden rounded-xl border transition-all duration-500 ${isMasterEnabled ? 'bg-cyan-950/20 border-cyan-500/20 cursor-default' : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'} ${!isSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={handleSystemAccess}
+                        disabled={pushLoading || !isSupported}
+                        className={`w-full relative group overflow-hidden rounded-xl border transition-all duration-500 ${isMasterEnabled ? 'bg-cyan-950/20 border-cyan-500/20 hover:bg-cyan-900/30' : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'} ${!isSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         <div className="relative z-10 flex items-center justify-between p-3">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg ${isMasterEnabled ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-500'}`}>
-                                    {isMasterEnabled ? <Zap className="w-4 h-4 fill-current" /> : <Power className="w-4 h-4" />}
+                                    {pushLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isMasterEnabled ? <Zap className="w-4 h-4 fill-current" /> : <Power className="w-4 h-4" />)}
                                 </div>
                                 <div className="text-left">
                                     <div className={`text-xs font-bold ${isMasterEnabled ? 'text-white' : 'text-slate-300'}`}>
-                                        {isSupported ? (isMasterEnabled ? 'System Override Active' : 'Enable System Access') : 'Hardware Unsupported'}
+                                        {isSupported ? (isMasterEnabled ? 'Re-Sync Uplink' : 'Enable System Access') : 'Hardware Unsupported'}
                                     </div>
                                     <div className="text-[9px] text-slate-500 font-mono">
-                                        {isSupported ? (isMasterEnabled ? 'Notifications are permitted' : 'Grant browser permissions') : 'Browser missing API'}
+                                        {isSupported ? (isMasterEnabled ? 'Cloud connection active' : 'Grant browser permissions') : 'Browser missing API'}
                                     </div>
                                 </div>
                             </div>
