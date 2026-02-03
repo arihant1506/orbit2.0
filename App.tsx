@@ -9,7 +9,7 @@ import { WelcomeLoader } from './components/WelcomeLoader';
 import { CompactWidget } from './components/CompactWidget'; 
 import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_SCHEDULE, BLANK_UNI_SCHEDULE } from './constants';
 import { WeekSchedule, ThemeMode, UserProfile, ScheduleSlot, WaterConfig, ClassSession, NoteItem, WeeklyStats, DailyStat } from './types';
-import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut, Save, CheckCircle2, ShieldCheck, Cloud } from 'lucide-react'; 
+import { Radio, Sun, Moon, Monitor, UserCircle, Loader2, LogOut, Save, CheckCircle2, ShieldCheck, Cloud, AlertTriangle } from 'lucide-react'; 
 import { LiquidTabs } from './components/LiquidTabs';
 import { getUserFromCloud, syncUserToCloud, loginUser, registerUser, getGlobalUsers, deleteGlobalUser, deleteCurrentUser } from './utils/db';
 import { playOrbitSound } from './utils/audio';
@@ -213,6 +213,7 @@ export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'academic' | 'notes' | 'hydration' | 'profile' | 'admin'>('daily');
   const [isClient, setIsClient] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -221,12 +222,9 @@ export const App: React.FC = () => {
   useRealtimeSync(currentUser, setUsers);
 
   // --- LOGIC: HISTORY SYNC (HEATMAP) ---
-  // Syncs the current week's performance into the 'dailyStats' persistent record
   useEffect(() => {
     if (!currentUser || !users[currentUser]) return;
     
-    // We only update if schedule changes.
-    // Calculate stats for all days in the CURRENT week and update the user profile
     const profile = users[currentUser];
     const schedule = profile.schedule;
     const mondayDate = new Date(getMondayOfCurrentWeek());
@@ -244,7 +242,6 @@ export const App: React.FC = () => {
            const completed = slots.filter(s => s.isCompleted).length;
            const total = slots.length;
            
-           // Only update if changed to avoid infinite loop trigger
            if (!newDailyStats[dateStr] || newDailyStats[dateStr].c !== completed || newDailyStats[dateStr].t !== total) {
                newDailyStats[dateStr] = { c: completed, t: total };
                hasChanges = true;
@@ -261,10 +258,9 @@ export const App: React.FC = () => {
             }
         }));
     }
-  }, [users, currentUser]); // Careful: users dependency might trigger loop if we setUsers inside. 
-  // Optimization: The 'hasChanges' check prevents infinite loop.
+  }, [users, currentUser]);
 
-  // --- LOGIC: WEEKLY RESET & ARCHIVING ---
+  // --- LOGIC: WEEKLY RESET ---
   useEffect(() => {
     if (!currentUser || !users[currentUser]) return;
 
@@ -328,26 +324,6 @@ export const App: React.FC = () => {
     }
   }, [currentUser, users]);
 
-  // --- PERSISTENCE FIX: FETCH ON MOUNT/RELOAD ---
-  useEffect(() => {
-    const fetchLatestProfile = async () => {
-      if (currentUser) {
-        setIsSyncing(true);
-        try {
-          const cloudProfile = await getUserFromCloud(currentUser);
-          if (cloudProfile) {
-            setUsers(prev => ({ ...prev, [currentUser]: cloudProfile }));
-          }
-        } catch (e) {
-          console.error('[Persistence] Failed to fetch profile', e);
-        } finally {
-          setIsSyncing(false);
-        }
-      }
-    };
-    fetchLatestProfile();
-  }, [currentUser]);
-
   useEffect(() => { 
     setIsClient(true); 
     const root = window.document.documentElement;
@@ -379,16 +355,20 @@ export const App: React.FC = () => {
   }, [installPrompt]);
 
   // Sync Logic (Auto-Save on Change)
-  // This hook detects ANY change in the user object and sends it to the cloud
   useEffect(() => {
       const sync = async () => {
         if (currentUser && users[currentUser] && !isLoggingOut) {
-            await syncUserToCloud(users[currentUser]);
-            setLastSyncTime(new Date());
+            const result = await syncUserToCloud(users[currentUser]);
+            if (result.success) {
+                setLastSyncTime(new Date());
+                setSyncError(false);
+            } else {
+                setSyncError(true);
+            }
         }
       };
       
-      const t = setTimeout(sync, 1000); // Debounce sync by 1s
+      const t = setTimeout(sync, 1000); 
       return () => clearTimeout(t);
   }, [users, currentUser, isLoggingOut]);
 
@@ -438,8 +418,10 @@ export const App: React.FC = () => {
         if (authResponse.success) {
              const cloudProfile = await getUserFromCloud(normalizedUsername);
              if (cloudProfile) {
+                 // CRITICAL: Ensure we use the cloud profile if it exists
                  setUsers(prev => ({ ...prev, [normalizedUsername]: cloudProfile }));
              } else {
+                 // Create new profile only if not found in cloud
                  setUsers(prev => {
                      if (prev[normalizedUsername]) return prev;
                      const isOwner = normalizedUsername === 'arihant';
@@ -455,7 +437,7 @@ export const App: React.FC = () => {
                         notes: [],
                         lastResetDate: getMondayOfCurrentWeek(),
                         reportArchive: [],
-                        dailyStats: {}, // Init daily stats
+                        dailyStats: {}, 
                         preferences: { theme: 'dark', startOfWeek: 'Monday', timeFormat: '12h', notifications: { water: true, schedule: true, academic: true } }
                      };
                      return { ...prev, [normalizedUsername]: newProfile };
@@ -568,14 +550,12 @@ export const App: React.FC = () => {
       });
   }, [currentUser]);
 
-  // Updated to properly merge updates
   const handleUpdateUser = useCallback((updates: Partial<UserProfile>) => {
     if (!currentUser) return;
     setUsers(prev => {
       const updatedProfile = { 
           ...prev[currentUser], 
           ...updates,
-          // Deep merge preferences if they exist in updates
           preferences: updates.preferences 
             ? { ...prev[currentUser].preferences, ...updates.preferences } 
             : prev[currentUser].preferences
@@ -718,6 +698,11 @@ export const App: React.FC = () => {
                                                     <>
                                                         <Loader2 className="w-3 h-3 text-cyan-500 animate-spin" />
                                                         <span className="text-[9px] font-mono text-cyan-500 uppercase">Syncing</span>
+                                                    </>
+                                                ) : syncError ? (
+                                                    <>
+                                                        <AlertTriangle className="w-3 h-3 text-red-500" />
+                                                        <span className="text-[9px] font-mono text-red-500 uppercase">Offline</span>
                                                     </>
                                                 ) : (
                                                     <>

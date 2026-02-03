@@ -117,49 +117,65 @@ export const registerUser = async (username: string, password?: string): Promise
 // --- DATA SYNC ---
 
 export const syncUserToCloud = async (user: UserProfile) => {
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  if (!authUser) return;
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !authUser) {
+      console.warn("Cannot sync: No authenticated user session.");
+      return { success: false, error: "No session" };
+  }
 
-  const { error } = await supabase
-    .from('user_profiles')
-    .upsert({
-      id: authUser.id,
-      username: user.username,
-      profile_data: user,
-      last_synced: new Date().toISOString()
-    });
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        id: authUser.id,
+        username: user.username,
+        profile_data: user,
+        last_synced: new Date().toISOString()
+      }, { onConflict: 'id' });
 
-  if (error) {
-    console.error("Cloud Sync Failed:", error.message);
-  } else {
-    console.debug(`[Cloud] Synced: ${user.username}`);
+    if (error) {
+      console.error("Cloud Sync Failed:", error.message, error.details);
+      return { success: false, error: error.message };
+    } else {
+      console.debug(`[Cloud] Synced: ${user.username}`);
+      return { success: true };
+    }
+  } catch (e: any) {
+      console.error("Cloud Sync Exception:", e);
+      return { success: false, error: e.message };
   }
 };
 
 export const getUserFromCloud = async (username: string): Promise<UserProfile | null> => {
   const { data: { user: authUser } } = await supabase.auth.getUser();
-  if (!authUser) return null;
-
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('profile_data')
-    .eq('id', authUser.id)
-    .single();
-
-  if (error) {
-    console.warn("Profile fetch warning:", error.message);
-    return null;
+  if (!authUser) {
+      console.warn("[Cloud] Fetch aborted: No user session.");
+      return null;
   }
 
-  if (data && data.profile_data) {
-    const hydratedProfile = hydrateProfile(data.profile_data as UserProfile);
-    if (JSON.stringify(hydratedProfile) !== JSON.stringify(data.profile_data)) {
-        syncUserToCloud(hydratedProfile);
-    }
-    return hydratedProfile;
+  try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('profile_data')
+        .eq('id', authUser.id)
+        .maybeSingle(); // Use maybeSingle to avoid 406 errors on 0 rows
+
+      if (error) {
+        console.warn("Profile fetch warning:", error.message);
+        return null;
+      }
+
+      if (data && data.profile_data) {
+        const hydratedProfile = hydrateProfile(data.profile_data as UserProfile);
+        return hydratedProfile;
+      }
+      
+      return null; // No profile found (fresh user)
+  } catch (e) {
+      console.error("Profile fetch exception:", e);
+      return null;
   }
-  
-  return null;
 };
 
 // --- USER ACTIONS ---

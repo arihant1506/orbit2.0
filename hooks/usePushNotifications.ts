@@ -26,6 +26,17 @@ export const usePushNotifications = () => {
     setLoading(true);
     setError(null);
 
+    // Vercel / Production Check
+    const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:4000/api/save-subscription`;
+    
+    // If we are on a deployed domain (not localhost) AND haven't set an API_URL, 
+    // we assume the backend isn't deployed. Return false gracefully.
+    if (!import.meta.env.VITE_API_URL && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        console.warn("Push Notifications disabled: Backend URL not configured for production.");
+        alert("Notification Server Unavailable. Please deploy backend and set VITE_API_URL.");
+        return false;
+    }
+
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         throw new Error('Push notifications not supported on this device');
@@ -57,10 +68,6 @@ export const usePushNotifications = () => {
       }
 
       // 4. Send Subscription to Backend
-      // Dynamic URL: Allows mobile devices on LAN to reach the server running on the PC
-      // Falls back to localhost:4000 if not configured
-      const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:4000/api/save-subscription`;
-      
       console.log(`[Push] Sending subscription to: ${apiUrl}`);
 
       const response = await fetch(apiUrl, {
