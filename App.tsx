@@ -200,6 +200,9 @@ export const App: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(true); 
   const [isWidgetMode, setIsWidgetMode] = useState(false); 
   
+  // SAFETY LOCK: Prevents auto-save until we confirm we fetched cloud data or created a new user
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
   const [currentUser, setCurrentUser] = useState<string | null>(() => localStorage.getItem('orbit_active_user'));
   const [users, setUsers] = useState<Record<string, UserProfile>>(() => {
     const saved = localStorage.getItem('orbit_users');
@@ -357,20 +360,24 @@ export const App: React.FC = () => {
   // Sync Logic (Auto-Save on Change)
   useEffect(() => {
       const sync = async () => {
-        if (currentUser && users[currentUser] && !isLoggingOut) {
-            const result = await syncUserToCloud(users[currentUser]);
-            if (result.success) {
-                setLastSyncTime(new Date());
-                setSyncError(false);
-            } else {
-                setSyncError(true);
-            }
+        // SAFETY CHECK: Only sync if we have successfully loaded data initially
+        // This prevents overwriting cloud data with blank local data on initial load race conditions
+        if (!isDataLoaded || !currentUser || !users[currentUser] || isLoggingOut || isWidgetMode) {
+            return;
+        }
+
+        const result = await syncUserToCloud(users[currentUser]);
+        if (result.success) {
+            setLastSyncTime(new Date());
+            setSyncError(false);
+        } else {
+            setSyncError(true);
         }
       };
       
       const t = setTimeout(sync, 1000); 
       return () => clearTimeout(t);
-  }, [users, currentUser, isLoggingOut]);
+  }, [users, currentUser, isLoggingOut, isDataLoaded, isWidgetMode]);
 
   useEffect(() => {
     if (currentUser === 'arihant') {
@@ -416,32 +423,40 @@ export const App: React.FC = () => {
         }
 
         if (authResponse.success) {
-             const cloudProfile = await getUserFromCloud(normalizedUsername);
-             if (cloudProfile) {
-                 // CRITICAL: Ensure we use the cloud profile if it exists
-                 setUsers(prev => ({ ...prev, [normalizedUsername]: cloudProfile }));
-             } else {
-                 // Create new profile only if not found in cloud
-                 setUsers(prev => {
-                     if (prev[normalizedUsername]) return prev;
-                     const isOwner = normalizedUsername === 'arihant';
-                     const initialSchedule = isOwner ? JSON.parse(JSON.stringify(INITIAL_SCHEDULE)) : JSON.parse(JSON.stringify(BLANK_SCHEDULE));
-                     const initialAcademic = isOwner ? JSON.parse(JSON.stringify(UNI_SCHEDULE)) : JSON.parse(JSON.stringify(BLANK_UNI_SCHEDULE));
+             try {
+                 const cloudProfile = await getUserFromCloud(normalizedUsername);
+                 if (cloudProfile) {
+                     setUsers(prev => ({ ...prev, [normalizedUsername]: cloudProfile }));
+                     setIsDataLoaded(true); // CONFIRMED: Data loaded from cloud
+                 } else {
+                     // Create new profile only if not found in cloud AND no DB error
+                     setUsers(prev => {
+                         if (prev[normalizedUsername]) return prev;
+                         const isOwner = normalizedUsername === 'arihant';
+                         const initialSchedule = isOwner ? JSON.parse(JSON.stringify(INITIAL_SCHEDULE)) : JSON.parse(JSON.stringify(BLANK_SCHEDULE));
+                         const initialAcademic = isOwner ? JSON.parse(JSON.stringify(UNI_SCHEDULE)) : JSON.parse(JSON.stringify(BLANK_UNI_SCHEDULE));
 
-                     const newProfile: UserProfile = {
-                        username: normalizedUsername,
-                        password: password,
-                        joinedDate: new Date().toISOString(),
-                        schedule: initialSchedule,
-                        academicSchedule: initialAcademic,
-                        notes: [],
-                        lastResetDate: getMondayOfCurrentWeek(),
-                        reportArchive: [],
-                        dailyStats: {}, 
-                        preferences: { theme: 'dark', startOfWeek: 'Monday', timeFormat: '12h', notifications: { water: true, schedule: true, academic: true } }
-                     };
-                     return { ...prev, [normalizedUsername]: newProfile };
-                 });
+                         const newProfile: UserProfile = {
+                            username: normalizedUsername,
+                            password: password,
+                            joinedDate: new Date().toISOString(),
+                            schedule: initialSchedule,
+                            academicSchedule: initialAcademic,
+                            notes: [],
+                            lastResetDate: getMondayOfCurrentWeek(),
+                            reportArchive: [],
+                            dailyStats: {}, 
+                            preferences: { theme: 'dark', startOfWeek: 'Monday', timeFormat: '12h', notifications: { water: true, schedule: true, academic: true } }
+                         };
+                         return { ...prev, [normalizedUsername]: newProfile };
+                     });
+                     setIsDataLoaded(true); // CONFIRMED: New profile ready
+                 }
+             } catch (fetchError: any) {
+                 console.error("Login Data Fetch Error:", fetchError);
+                 return `Sync Failed: ${fetchError.message || "Connection Error"}. Try again.`;
+                 // CRITICAL: We return error here so we DO NOT proceed to log them in 
+                 // and potentially overwrite their data with a blank local state.
              }
              
              if (normalizedUsername === 'arihant') {
@@ -473,6 +488,7 @@ export const App: React.FC = () => {
         }
     }
     setCurrentUser(null);
+    setIsDataLoaded(false); // Reset data load status
     localStorage.removeItem('orbit_active_user');
     localStorage.removeItem('orbit_jwt');
     setIsLoggingOut(false);
@@ -486,6 +502,7 @@ export const App: React.FC = () => {
     await deleteCurrentUser();
     setUsers(prev => { const next = { ...prev }; delete next[currentUser]; return next; });
     setCurrentUser(null);
+    setIsDataLoaded(false);
     localStorage.removeItem('orbit_active_user');
     localStorage.removeItem('orbit_jwt');
     setViewMode('daily');
@@ -521,6 +538,67 @@ export const App: React.FC = () => {
   const handleRemoveSlot = useCallback((day: string, slotId: string) => {
       if (!currentUser) return;
       setUsers(prev => ({...prev, [currentUser]: {...prev[currentUser], schedule: {...prev[currentUser].schedule, [day]: prev[currentUser].schedule[day].filter(s => s.id !== slotId)}}}));
+  }, [currentUser]);
+
+  // --- ACADEMIC HANDLERS ---
+  const handleAddClass = useCallback((day: string, classData: ClassSession) => {
+    if (!currentUser) return;
+    setUsers(prev => {
+        const profile = prev[currentUser];
+        const dayClasses = profile.academicSchedule[day] || [];
+        const newClasses = [...dayClasses, classData];
+        // Sort by time
+        newClasses.sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+        
+        return {
+            ...prev,
+            [currentUser]: {
+                ...profile,
+                academicSchedule: {
+                    ...profile.academicSchedule,
+                    [day]: newClasses
+                }
+            }
+        };
+    });
+  }, [currentUser]);
+
+  const handleEditClass = useCallback((day: string, updatedClass: ClassSession) => {
+      if (!currentUser) return;
+      setUsers(prev => {
+          const profile = prev[currentUser];
+          const dayClasses = profile.academicSchedule[day] || [];
+          const newClasses = dayClasses.map(c => c.id === updatedClass.id ? updatedClass : c);
+          newClasses.sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+          return {
+              ...prev,
+              [currentUser]: {
+                  ...profile,
+                  academicSchedule: {
+                      ...profile.academicSchedule,
+                      [day]: newClasses
+                  }
+              }
+          };
+      });
+  }, [currentUser]);
+
+  const handleDeleteClass = useCallback((day: string, classId: string) => {
+      if (!currentUser) return;
+      setUsers(prev => {
+          const profile = prev[currentUser];
+          const dayClasses = profile.academicSchedule[day] || [];
+          return {
+              ...prev,
+              [currentUser]: {
+                  ...profile,
+                  academicSchedule: {
+                      ...profile.academicSchedule,
+                      [day]: dayClasses.filter(c => c.id !== classId)
+                  }
+              }
+          };
+      });
   }, [currentUser]);
 
   const handleSaveWaterConfig = useCallback((config: WaterConfig) => {
@@ -797,9 +875,9 @@ export const App: React.FC = () => {
                                 ) : viewMode === 'academic' && userProfile ? (
                                     <AcademicView 
                                         schedule={currentAcademicSchedule}
-                                        onAddClass={() => {}} 
-                                        onEditClass={() => {}}
-                                        onDeleteClass={() => {}}
+                                        onAddClass={(day, cls) => handleAddClass(day, cls)} 
+                                        onEditClass={(day, cls) => handleEditClass(day, cls)}
+                                        onDeleteClass={(day, id) => handleDeleteClass(day, id)}
                                     />
                                 ) : viewMode === 'hydration' && userProfile ? (
                                     <WaterTracker 

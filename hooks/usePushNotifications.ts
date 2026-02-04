@@ -30,10 +30,9 @@ export const usePushNotifications = () => {
     const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:4000/api/save-subscription`;
     
     // If we are on a deployed domain (not localhost) AND haven't set an API_URL, 
-    // we assume the backend isn't deployed. Return false gracefully.
+    // we assume the backend isn't deployed. Return false gracefully to prevent UI blocking.
     if (!import.meta.env.VITE_API_URL && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        console.warn("Push Notifications disabled: Backend URL not configured for production.");
-        alert("Notification Server Unavailable. Please deploy backend and set VITE_API_URL.");
+        console.warn("Push Notifications disabled: Backend URL (VITE_API_URL) not configured.");
         return false;
     }
 

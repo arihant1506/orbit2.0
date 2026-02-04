@@ -1,10 +1,12 @@
 
 import { supabase } from './supabase';
-import { UserProfile } from '../types';
-import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_UNI_SCHEDULE } from '../constants';
+import { UserProfile, WeekSchedule, UniversitySchedule } from '../types';
+import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_UNI_SCHEDULE, BLANK_SCHEDULE } from '../constants';
 
 // Helper to map usernames to emails for Supabase Auth
 const getEmail = (username: string) => `${username.toLowerCase().replace(/\s/g, '')}@orbit.local`;
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 interface AuthResult {
   success: boolean;
@@ -22,11 +24,48 @@ const mapSupabaseError = (message: string): string => {
   return message;
 };
 
+// --- DEBUG CONNECTION ---
+export const testDatabaseConnection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, message: "You are not logged in." };
+
+    try {
+        const { error } = await supabase
+            .from('user_profiles')
+            .upsert({ 
+                id: user.id, 
+                last_synced: new Date().toISOString() 
+            }, { onConflict: 'id' })
+            .select();
+
+        if (error) {
+            console.error("DB Test Failed:", error);
+            return { success: false, message: `DB Error: ${error.message}` };
+        }
+        return { success: true, message: "Connection Successful! Database is writable." };
+    } catch (e: any) {
+        return { success: false, message: `Network Error: ${e.message}` };
+    }
+};
+
 // --- PROFILE HYDRATION & MIGRATION ---
 const hydrateProfile = (profile: UserProfile): UserProfile => {
+  // 1. Robust Merge Schedule
+  // Use spread syntax to prioritize DB data over defaults.
+  // This ensures persisted slots are not lost during hydration.
+  const safeSchedule: WeekSchedule = {
+      ...JSON.parse(JSON.stringify(BLANK_SCHEDULE)),
+      ...(profile.schedule || {})
+  };
+
+  // 2. Robust Merge Academic Schedule
+  const safeAcademic: UniversitySchedule = {
+      ...JSON.parse(JSON.stringify(BLANK_UNI_SCHEDULE)),
+      ...(profile.academicSchedule || {})
+  };
+
   const defaults = {
     notes: [],
-    academicSchedule: JSON.parse(JSON.stringify(BLANK_UNI_SCHEDULE)),
     preferences: { 
         theme: 'dark' as const, 
         startOfWeek: 'Monday' as const, 
@@ -38,8 +77,9 @@ const hydrateProfile = (profile: UserProfile): UserProfile => {
 
   const hydrated: UserProfile = {
     ...profile,
+    schedule: safeSchedule,
+    academicSchedule: safeAcademic,
     notes: profile.notes || defaults.notes,
-    academicSchedule: profile.academicSchedule || defaults.academicSchedule,
     waterConfig: profile.waterConfig || defaults.waterConfig,
     preferences: {
         ...defaults.preferences,
@@ -51,11 +91,8 @@ const hydrateProfile = (profile: UserProfile): UserProfile => {
     }
   };
 
-  if (hydrated.username.toLowerCase() === 'arihant') {
-      console.debug("[Hydration] Force-updating Owner Schedule from Code Constants");
-      hydrated.schedule = JSON.parse(JSON.stringify(INITIAL_SCHEDULE));
-      hydrated.academicSchedule = JSON.parse(JSON.stringify(UNI_SCHEDULE));
-  }
+  // REMOVED: The logic that forced 'arihant' to always reset to INITIAL_SCHEDULE.
+  // This allows the owner account to save/persist changes like any other user.
 
   return hydrated;
 };
@@ -138,7 +175,6 @@ export const syncUserToCloud = async (user: UserProfile) => {
       console.error("Cloud Sync Failed:", error.message, error.details);
       return { success: false, error: error.message };
     } else {
-      console.debug(`[Cloud] Synced: ${user.username}`);
       return { success: true };
     }
   } catch (e: any) {
@@ -159,11 +195,11 @@ export const getUserFromCloud = async (username: string): Promise<UserProfile | 
         .from('user_profiles')
         .select('profile_data')
         .eq('id', authUser.id)
-        .maybeSingle(); // Use maybeSingle to avoid 406 errors on 0 rows
+        .maybeSingle(); 
 
       if (error) {
-        console.warn("Profile fetch warning:", error.message);
-        return null;
+        console.error("Critical DB Fetch Error:", error);
+        throw new Error(error.message);
       }
 
       if (data && data.profile_data) {
@@ -171,10 +207,10 @@ export const getUserFromCloud = async (username: string): Promise<UserProfile | 
         return hydratedProfile;
       }
       
-      return null; // No profile found (fresh user)
+      return null; 
   } catch (e) {
       console.error("Profile fetch exception:", e);
-      return null;
+      throw e; 
   }
 };
 
@@ -186,14 +222,10 @@ export const deleteCurrentUser = async (): Promise<boolean> => {
 
   console.log("Attempting Permanent Account Deletion via RPC...");
 
-  // 1. Try to delete the Auth User via RPC (Permanent Delete)
   const { error: rpcError } = await supabase.rpc('delete_user_account');
 
   if (rpcError) {
     console.error("RPC Delete Failed:", rpcError.message);
-    console.warn("Falling back to profile deletion. Note: Account might remain in Auth if SQL script was not run.");
-
-    // 2. Fallback: Delete just the profile data if RPC missing
     const { error: tableError } = await supabase
       .from('user_profiles')
       .delete()
@@ -203,11 +235,8 @@ export const deleteCurrentUser = async (): Promise<boolean> => {
         console.error("Fallback Profile Delete Failed:", tableError.message);
         return false;
     }
-  } else {
-     console.log("Account permanently deleted via RPC.");
-  }
+  } 
 
-  // Clear session regardless of method
   await supabase.auth.signOut();
   return true;
 };

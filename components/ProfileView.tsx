@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { UserProfile, ThemeMode } from '../types';
-import { User, Mail, Lock, Shield, Moon, Sun, Monitor, Bell, Calendar, Download, RefreshCw, Trash2, LogOut, ChevronRight, Check, AlertTriangle, Smartphone, Globe, Code, LayoutGrid, X, Palette, Sparkles, Bot, Key, Droplet, Clock, GraduationCap, Laptop, AppWindow, ExternalLink, Smartphone as PhoneIcon } from 'lucide-react';
+import { User, Mail, Lock, Shield, Moon, Sun, Monitor, Bell, Calendar, Download, RefreshCw, Trash2, LogOut, ChevronRight, Check, AlertTriangle, Smartphone, Globe, Code, LayoutGrid, X, Palette, Sparkles, Bot, Key, Droplet, Clock, GraduationCap, Laptop, AppWindow, ExternalLink, Smartphone as PhoneIcon, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playOrbitSound } from '../utils/audio';
+import { testDatabaseConnection } from '../utils/db';
 
 interface ProfileViewProps {
   user: UserProfile;
@@ -142,8 +143,8 @@ const AvatarSelectorModal = ({ isOpen, onClose, onSelect, currentAvatar }: { isO
     );
 };
 
+// ... ChangePasswordModal remains same ... 
 const ChangePasswordModal = ({ isOpen, onClose, user, onUpdate }: { isOpen: boolean, onClose: () => void, user: UserProfile, onUpdate: (updates: Partial<UserProfile>) => void }) => {
-    // ... (same as before)
     const [currentPass, setCurrentPass] = useState('');
     const [newPass, setNewPass] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
@@ -263,13 +264,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     playOrbitSound('power_up');
   };
 
-  const toggleNotification = (key: 'water' | 'schedule' | 'academic') => {
-    playOrbitSound('click');
-    const newNotifs = { ...notifPrefs, [key]: !notifPrefs[key] };
-    onUpdateUser({ preferences: { ...preferences, notifications: newNotifs } });
-    if (!notifPrefs[key] && Notification.permission !== 'granted') {
-       Notification.requestPermission();
-    }
+  const handleTestDB = async () => {
+      playOrbitSound('click');
+      const res = await testDatabaseConnection();
+      if (res.success) {
+          playOrbitSound('success_chord');
+          alert(`✅ ${res.message}`);
+      } else {
+          playOrbitSound('error');
+          alert(`❌ ${res.message}\n\nPlease check the SQL setup in Supabase Dashboard.`);
+      }
   };
 
   const launchWidgetPopup = () => {
@@ -339,7 +343,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          
-         {/* WIDGET CONSOLE (New) */}
+         {/* WIDGET CONSOLE */}
          <div className="p-6 rounded-[2rem] bg-[#0c0a0e] border border-white/10 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-[-20%] right-[-10%] w-[200px] h-[200px] bg-purple-500/10 blur-[80px] pointer-events-none" />
             <h3 className="text-xs font-bold font-mono text-purple-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
@@ -421,8 +425,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                    <button onClick={onForceSync} disabled={isSyncing} className="py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                       <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Syncing...' : 'Force Sync'}
                    </button>
-                   <button onClick={onExportData} className="py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-white hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95">
-                      <Download className="w-3 h-3" /> Export JSON
+                   <button onClick={handleTestDB} className="py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-white hover:text-slate-900 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95">
+                      <Database className="w-3 h-3" /> Test Connection
                    </button>
                 </div>
             </div>

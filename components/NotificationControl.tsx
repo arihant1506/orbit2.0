@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, BellRing, Droplet, Clock, GraduationCap, Zap, Power, Settings, AlertTriangle, Check, Shield, Activity, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Bell, Droplet, Clock, GraduationCap, Zap, Power, Check, Activity, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPreferences } from '../types';
 import { playOrbitSound } from '../utils/audio';
@@ -65,7 +65,8 @@ export const NotificationControl: React.FC<NotificationControlProps> = ({ prefer
                     alert("Secure Uplink Established. You will receive alerts even when offline.");
                 } else {
                     playOrbitSound('error');
-                    alert("Failed to sync with server. Check console.");
+                    // Silent failure for Vercel users without backend
+                    console.warn("Push sync skipped: Backend unavailable. Local alerts active.");
                 }
             } else {
                 alert("Please login to enable cloud notifications.");
