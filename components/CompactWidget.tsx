@@ -78,7 +78,7 @@ export const CompactWidget: React.FC<CompactWidgetProps> = ({
           <div>
              <motion.h1 
                 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-                className="text-6xl sm:text-7xl font-black italic tracking-tighter leading-none tabular-nums text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400"
+                className="text-6xl sm:text-7xl font-black italic tracking-tighter leading-none tabular-nums text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 pr-4"
              >
                 {time.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}
              </motion.h1>
@@ -137,7 +137,7 @@ export const CompactWidget: React.FC<CompactWidgetProps> = ({
                    <Activity className="w-3 h-3 animate-pulse" /> Current Protocol
                 </div>
                 
-                <h2 className={`text-4xl sm:text-5xl font-black uppercase italic leading-none tracking-tight mb-4 ${currentSlot.isCompleted ? 'text-slate-600 line-through decoration-slate-700' : 'text-white'}`}>
+                <h2 className={`text-4xl sm:text-5xl font-black uppercase italic leading-none tracking-tight mb-4 pr-2 ${currentSlot.isCompleted ? 'text-slate-600 line-through decoration-slate-700' : 'text-white'}`}>
                    {currentSlot.title}
                 </h2>
                 

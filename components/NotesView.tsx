@@ -148,7 +148,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ notes, onUpdateNotes }) =>
               <div className="flex items-center gap-2 text-indigo-400 font-mono text-[10px] uppercase tracking-[0.4em] mb-2">
                  <Zap className="w-3 h-3" /> Neural Scratchpad
               </div>
-              <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-white uppercase font-sans">
+              <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-white uppercase font-sans pr-2">
                  Data <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Shards</span>
               </h2>
            </div>

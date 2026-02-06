@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { UserProfile } from '../types';
@@ -10,11 +11,13 @@ export const useRealtimeSync = (
     if (!currentUser) return;
 
     let channel: any = null;
+    let isMounted = true;
 
     const setupSubscription = async () => {
       // Get the authenticated user's UUID to subscribe to their specific row
       const { data: { user } } = await supabase.auth.getUser();
       
+      if (!isMounted) return; // Cleanup check
       if (!user) return;
 
       channel = supabase
@@ -61,6 +64,7 @@ export const useRealtimeSync = (
 
     // Cleanup subscription on unmount or user change
     return () => {
+      isMounted = false;
       if (channel) {
         supabase.removeChannel(channel);
       }

@@ -1,60 +1,53 @@
-
-// Manually declared types to avoid "Cannot find type definition file for 'vite/client'" error.
+// Manually define Vite types to avoid "Cannot find type definition file" error for vite/client
 
 declare module '*.svg' {
-  const svgContent: string;
-  export default svgContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.png' {
-  const pngContent: string;
-  export default pngContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.jpg' {
-  const jpgContent: string;
-  export default jpgContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.jpeg' {
-  const jpegContent: string;
-  export default jpegContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.gif' {
-  const gifContent: string;
-  export default gifContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.webp' {
-  const webpContent: string;
-  export default webpContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.ico' {
-  const icoContent: string;
-  export default icoContent;
+  const content: string;
+  export default content;
 }
 
 declare module '*.bmp' {
-  const bmpContent: string;
-  export default bmpContent;
-}
-
-declare module '*.avif' {
-  const avifContent: string;
-  export default avifContent;
+  const content: string;
+  export default content;
 }
 
 interface ImportMetaEnv {
-  [key: string]: any
-  BASE_URL: string
-  MODE: string
-  DEV: boolean
-  PROD: boolean
-  SSR: boolean
+  readonly VITE_API_URL: string;
+  readonly VITE_VAPID_PUBLIC_KEY: string;
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+  [key: string]: any;
 }
 
 interface ImportMeta {
-  readonly env: ImportMetaEnv
+  readonly env: ImportMetaEnv;
 }

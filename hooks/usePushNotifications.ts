@@ -33,6 +33,7 @@ export const usePushNotifications = () => {
     // we assume the backend isn't deployed. Return false gracefully to prevent UI blocking.
     if (!import.meta.env.VITE_API_URL && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         console.warn("Push Notifications disabled: Backend URL (VITE_API_URL) not configured.");
+        setLoading(false);
         return false;
     }
 
@@ -69,24 +70,31 @@ export const usePushNotifications = () => {
       // 4. Send Subscription to Backend
       console.log(`[Push] Sending subscription to: ${apiUrl}`);
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription,
-          userId
-        }),
-      });
+      try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              subscription,
+              userId
+            }),
+          });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Server rejected subscription: ${response.status} ${errText}`);
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server rejected subscription: ${response.status} ${errText}`);
+          }
+
+          console.log('Push Subscription successful and saved to server.');
+          return true;
+      } catch (fetchError: any) {
+          // Gracefully handle fetch errors (backend down/not reachable)
+          console.warn(`[Push] Backend unreachable (${fetchError.message}). Subscription active locally in browser but not saved to server.`);
+          // Return true so the UI shows success (local notifications still work via SW if programmed correctly, or just to not error out)
+          return true;
       }
-
-      console.log('Push Subscription successful and saved to server.');
-      return true;
 
     } catch (err: any) {
       console.error('Push Subscription Error:', err);

@@ -21,24 +21,18 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // --- PHYSICS ENGINE (Professional Feel) ---
   const springConfig = { stiffness: 400, damping: 30, mass: 1 };
   
   const left = useSpring(0, springConfig);
   const width = useSpring(0, springConfig);
   
   const xVelocity = useVelocity(left);
-  
-  // Subtle Deformation
   const scaleX = useTransform(xVelocity, [-3000, 0, 3000], [1.15, 1, 1.15]);
   const scaleY = useTransform(xVelocity, [-3000, 0, 3000], [0.9, 1, 0.9]);
   const skewX = useTransform(xVelocity, [-3000, 0, 3000], [15, 0, -15]);
-
-  // Chromatic Aberration
   const rgbShift = useTransform(xVelocity, [-3000, 0, 3000], [-3, 0, 3]);
   const rgbOpacity = useTransform(xVelocity, [-2000, 0, 2000], [0.6, 0, 0.6]);
 
-  // Update highlighter position
   const updateHighlight = useCallback(() => {
     const activeIndex = tabs.findIndex(t => t.id === activeId);
     const el = tabRefs.current[activeIndex];
@@ -46,46 +40,24 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
     if (el) {
       const newLeft = el.offsetLeft;
       const newWidth = el.offsetWidth;
-
-      // Only update if actually changed (prevents loops)
       if (newLeft !== left.get() || newWidth !== width.get()) {
-          setDimensions({
-            left: newLeft,
-            width: newWidth,
-            opacity: 1
-          });
+          setDimensions({ left: newLeft, width: newWidth, opacity: 1 });
           left.set(newLeft);
           width.set(newWidth);
       }
     }
   }, [activeId, tabs, left, width]);
 
-  // 1. Initial load and activeId change
-  useEffect(() => {
-    updateHighlight();
-  }, [updateHighlight]);
-
-  // 2. Font Loading Safety Check (Prevents wrong width before fonts load)
-  useEffect(() => {
-    if (document.fonts) {
-        document.fonts.ready.then(() => updateHighlight());
-    }
-  }, [updateHighlight]);
-
-  // 3. Robust Resize Observer (Handles container resize even if window doesn't fire event)
+  useEffect(() => { updateHighlight(); }, [updateHighlight]);
+  useEffect(() => { if (document.fonts) { document.fonts.ready.then(() => updateHighlight()); } }, [updateHighlight]);
   useEffect(() => {
     if (!containerRef.current) return;
-
     if (typeof ResizeObserver !== 'undefined') {
         try {
-            const resizeObserver = new ResizeObserver(() => {
-                requestAnimationFrame(() => updateHighlight());
-            });
+            const resizeObserver = new ResizeObserver(() => { requestAnimationFrame(() => updateHighlight()); });
             resizeObserver.observe(containerRef.current);
             return () => resizeObserver.disconnect();
-        } catch (e) {
-            console.warn("ResizeObserver failed in Tabs:", e);
-        }
+        } catch (e) { console.warn("ResizeObserver failed in Tabs:", e); }
     }
   }, [updateHighlight]);
 
@@ -94,7 +66,6 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
       playOrbitSound('glass_tap');
       onChange(id);
       
-      // Auto-scroll into view for mobile
       const index = tabs.findIndex(t => t.id === id);
       const el = tabRefs.current[index];
       if (el) {
@@ -111,51 +82,23 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
           : 'gap-2 sm:gap-4 overflow-x-auto no-scrollbar py-2 sm:py-4 px-1 mask-linear-fade'
       }`}
     >
-      {/* --- THE LIQUID CRYSTAL BUBBLE --- */}
       <motion.div
-         style={{
-            left,
-            width,
-            scaleX,
-            scaleY,
-            skewX,
-            opacity: dimensions.opacity
-         }}
+         style={{ left, width, scaleX, scaleY, skewX, opacity: dimensions.opacity }}
          className={`absolute top-1 bottom-1 pointer-events-none z-0 ${variant === 'pill' ? 'rounded-full' : 'rounded-2xl top-1 bottom-1'}`}
       >
-         {/* 1. RGB Edge Shift */}
-         <motion.div 
-            style={{ x: rgbShift, opacity: rgbOpacity }}
-            className="absolute inset-0 bg-cyan-400/30 rounded-[inherit] blur-[3px] mix-blend-screen" 
-         />
-         <motion.div 
-            style={{ x: useTransform(rgbShift, (v: number) => -v), opacity: rgbOpacity }}
-            className="absolute inset-0 bg-fuchsia-500/30 rounded-[inherit] blur-[3px] mix-blend-screen" 
-         />
-
-         {/* 2. Main Glass Body */}
+         <motion.div style={{ x: rgbShift, opacity: rgbOpacity }} className="absolute inset-0 bg-cyan-400/30 rounded-[inherit] blur-[3px] mix-blend-screen" />
+         <motion.div style={{ x: useTransform(rgbShift, (v: number) => -v), opacity: rgbOpacity }} className="absolute inset-0 bg-fuchsia-500/30 rounded-[inherit] blur-[3px] mix-blend-screen" />
          <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-white/5 backdrop-blur-[12px] rounded-[inherit] border border-white/20 overflow-hidden shadow-sm">
-            {/* Iridescent Tint */}
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-purple-400/10 mix-blend-overlay opacity-60" />
-            
-            {/* Elegant Shimmer */}
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer" style={{ animationDuration: '4s' }} />
-
-            {/* Inner Depth */}
             <div className="absolute inset-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),inset_0_-2px_4px_rgba(0,0,0,0.2)] rounded-[inherit]" />
-            
-            {/* Top Highlight */}
             <div className="absolute top-0 left-0 w-full h-[45%] bg-gradient-to-b from-white/10 to-transparent" />
          </div>
-         
-         {/* 3. Outer Glow */}
          <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 blur-lg rounded-[inherit] -z-10 opacity-50" />
       </motion.div>
 
-      {/* --- TABS CONTENT --- */}
       {tabs.map((tab, i) => {
         const isActive = activeId === tab.id;
-        
         return (
           <button
             key={tab.id}
@@ -168,17 +111,13 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({ tabs, activeId, onChange
             }`}
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-             {/* Magnifying Text Effect */}
              <motion.div 
                animate={{ 
-                 scale: isActive ? 1.15 : 1, 
-                 y: isActive ? -0.5 : 0,
-                 color: isActive ? '#ffffff' : '#94a3b8',
-                 textShadow: isActive ? '0 2px 8px rgba(255,255,255,0.4)' : 'none',
-                 filter: isActive ? 'brightness(1.1)' : 'brightness(1)'
+                 scale: isActive ? 1.15 : 1, y: isActive ? -0.5 : 0, color: isActive ? '#ffffff' : '#94a3b8',
+                 textShadow: isActive ? '0 2px 8px rgba(255,255,255,0.4)' : 'none', filter: isActive ? 'brightness(1.1)' : 'brightness(1)'
                }}
                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-               className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold font-mono uppercase tracking-[0.15em] relative z-20"
+               className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold font-mono uppercase tracking-[0.15em] relative z-20 whitespace-nowrap"
              >
                 {tab.label}
              </motion.div>

@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { WaterConfig } from '../types';
-import { Droplet, Settings, Check, CloudRain, Trophy, ArrowRight, Dna, Brain, Moon, Sun, Thermometer, Wind, MapPin, Loader2, AlertTriangle, Activity, RefreshCw } from 'lucide-react';
-import { LiquidSlider } from './LiquidSlider';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { WaterConfig, WaterSlot } from '../types';
+import { Droplet, Sun, Moon, RotateCcw, Check, Sparkles, Clock, ArrowRight, Activity, Zap, CloudLightning, Loader2, Thermometer, Settings2, X, Waves, Hexagon, Divide, ChevronRight, AlertCircle, Trophy } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { playOrbitSound } from '../utils/audio';
+import { LiquidSlider } from './LiquidSlider';
+import { GoogleGenAI } from "@google/genai";
 
 interface WaterTrackerProps {
   userConfig?: WaterConfig;
@@ -10,416 +13,664 @@ interface WaterTrackerProps {
   username: string;
 }
 
-interface WeatherData {
-  temp: number;
-  humidity: number;
-  conditionCode: number;
-  isDay: boolean;
-  locationName: string;
-  loading: boolean;
-  error?: string;
-}
+// --- UTILS ---
+const formatTime12 = (hours: number, minutes: number) => {
+    const h = hours % 12 || 12;
+    const ampm = hours < 12 || hours === 24 ? 'AM' : 'PM';
+    return `${h}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+};
+
+const generateSlots = (goalLiters: number, wakeTime: string, sleepTime: string): WaterSlot[] => {
+    const [wH, wM] = wakeTime.split(':').map(Number);
+    const [sH, sM] = sleepTime.split(':').map(Number);
+    
+    let startMin = wH * 60 + wM;
+    let endMin = sH * 60 + sM;
+    
+    if (endMin < startMin) endMin += 24 * 60;
+    endMin -= 60; // Buffer
+
+    const totalMinutes = endMin - startMin;
+    const glassSize = 250; 
+    const totalMl = goalLiters * 1000;
+    const slotsNeeded = Math.ceil(totalMl / glassSize);
+    
+    const finalSlots = Math.max(4, Math.min(16, slotsNeeded)); 
+    const interval = totalMinutes / (finalSlots - 1);
+
+    const slots: WaterSlot[] = [];
+    for(let i=0; i<finalSlots; i++) {
+        const currentMin = Math.floor(startMin + (i * interval));
+        let h = Math.floor(currentMin / 60);
+        const m = currentMin % 60;
+        if (h >= 24) h -= 24;
+        
+        let label = "INTAKE CYCLE";
+        if (i === 0) label = "SYS.BOOT";
+        else if (i === Math.floor(finalSlots/2)) label = "CORE REFUEL";
+        else if (i === finalSlots - 1) label = "FLUSH PROTOCOL";
+
+        slots.push({
+            id: `hydro-${Date.now()}-${i}`,
+            time: formatTime12(h, m),
+            amount: glassSize,
+            isCompleted: false,
+            label
+        });
+    }
+    return slots;
+};
+
+// --- VISUAL FX COMPONENTS ---
+
+const Scanline = () => (
+    <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.3)_50%)] bg-[length:100%_4px] opacity-20" />
+);
+
+const HexGrid = () => (
+    <div className="absolute inset-0 z-0 opacity-[0.05]" 
+         style={{ 
+             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l25.98 15v30L30 60 4.02 45V15z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E")`,
+             backgroundSize: '60px 60px'
+         }} 
+    />
+);
+
+// --- SUB-COMPONENT: ADVANCED BIO-REACTOR AVATAR ---
+const BioReactor = ({ percentage, mood = 'neutral' }: { percentage: number, mood?: 'neutral' | 'analyzing' | 'success' }) => {
+    
+    // Determine Stage
+    let stage: 'critical' | 'low' | 'medium' | 'high' | 'max' = 'low';
+    if (percentage >= 100) stage = 'max';
+    else if (percentage >= 75) stage = 'high';
+    else if (percentage >= 50) stage = 'medium';
+    else if (percentage > 20) stage = 'low';
+    else stage = 'critical';
+
+    if (mood === 'analyzing') stage = 'medium';
+
+    // Config per stage
+    const config = {
+        critical: {
+            colorClass: 'red',
+            ringColor: 'border-red-500',
+            glowColor: 'shadow-red-500/50',
+            liqFrom: 'from-red-600',
+            liqTo: 'to-rose-900',
+            eyes: 'dead',
+            mouth: 'frown'
+        },
+        low: {
+            colorClass: 'orange',
+            ringColor: 'border-orange-500',
+            glowColor: 'shadow-orange-500/50',
+            liqFrom: 'from-orange-500',
+            liqTo: 'to-amber-800',
+            eyes: 'bored',
+            mouth: 'flat'
+        },
+        medium: {
+            colorClass: 'cyan',
+            ringColor: 'border-cyan-500',
+            glowColor: 'shadow-cyan-500/50',
+            liqFrom: 'from-cyan-500',
+            liqTo: 'to-blue-800',
+            eyes: 'normal',
+            mouth: 'smile'
+        },
+        high: {
+            colorClass: 'purple',
+            ringColor: 'border-purple-500',
+            glowColor: 'shadow-purple-500/50',
+            liqFrom: 'from-purple-500',
+            liqTo: 'to-fuchsia-800',
+            eyes: 'happy',
+            mouth: 'big'
+        },
+        max: {
+            colorClass: 'emerald',
+            ringColor: 'border-emerald-400',
+            glowColor: 'shadow-emerald-400/60',
+            liqFrom: 'from-emerald-400',
+            liqTo: 'to-teal-500',
+            eyes: 'glowing',
+            mouth: 'hyped'
+        }
+    }[stage];
+
+    const isAnalyzing = mood === 'analyzing';
+
+    return (
+        <div className="relative w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
+            {/* 1. Outer Tech Ring (Static with ticks) */}
+            <div className="absolute inset-0 rounded-full border border-white/10 flex items-center justify-center">
+                {Array.from({ length: 12 }).map((_, i) => (
+                    <div 
+                        key={i} 
+                        className={`absolute w-1 h-2 bg-white/20`} 
+                        style={{ 
+                            top: 0, 
+                            transformOrigin: 'center 128px',
+                            transform: `rotate(${i * 30}deg)` 
+                        }} 
+                    />
+                ))}
+            </div>
+
+            {/* 2. Rotating HUD Rings */}
+            <div className={`absolute inset-4 rounded-full border border-dashed ${config.ringColor} opacity-30 animate-spin-slow`} style={{ animationDuration: '30s' }} />
+            <div className={`absolute inset-8 rounded-full border border-dotted ${config.ringColor} opacity-50 animate-spin-slow`} style={{ animationDuration: '15s', animationDirection: 'reverse' }} />
+            
+            {/* Halo for Max Stage */}
+            {stage === 'max' && (
+                <div className="absolute inset-[-20px] rounded-full border-2 border-emerald-400/30 animate-ping opacity-20" />
+            )}
+
+            {/* 3. Core Container (Glass) */}
+            <div className={`relative w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden backdrop-blur-md border-2 border-white/20 shadow-[0_0_60px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(255,255,255,0.1)] ${config.glowColor} shadow-2xl transition-all duration-700`}>
+                
+                {/* Liquid Fill */}
+                <motion.div 
+                    initial={{ height: '0%' }}
+                    animate={{ height: isAnalyzing ? '100%' : `${percentage}%` }}
+                    transition={{ type: 'spring', damping: 15, mass: 1 }}
+                    className={`absolute bottom-0 left-0 right-0 w-full bg-gradient-to-t ${config.liqFrom} ${config.liqTo} transition-colors duration-700 opacity-90`}
+                >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-white/50 animate-pulse" />
+                    {/* Bubbles */}
+                    <div className="absolute inset-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40 mix-blend-overlay" />
+                </motion.div>
+
+                {/* Face Interface */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-overlay">
+                    <div className="flex gap-4 mb-3">
+                        {/* LEFT EYE */}
+                        <div className="w-4 h-4 flex items-center justify-center">
+                            {config.eyes === 'dead' && (
+                                <div className="relative w-4 h-4">
+                                    <div className="absolute inset-0 w-1 h-full bg-white left-1.5 rotate-45 rounded-full" />
+                                    <div className="absolute inset-0 w-1 h-full bg-white left-1.5 -rotate-45 rounded-full" />
+                                </div>
+                            )}
+                            {config.eyes === 'bored' && (
+                                <div className="w-4 h-1 bg-white rounded-full mt-1" />
+                            )}
+                            {(config.eyes === 'normal' || config.eyes === 'glowing') && (
+                                <motion.div 
+                                    animate={{ scaleY: [1, 0.1, 1] }} 
+                                    transition={{ repeat: Infinity, repeatDelay: 3, duration: 0.15 }}
+                                    className={`w-3 h-3 bg-white rounded-full shadow-[0_0_10px_white] ${config.eyes === 'glowing' ? 'animate-pulse shadow-[0_0_20px_white]' : ''}`} 
+                                />
+                            )}
+                            {config.eyes === 'happy' && (
+                                <div className="w-3 h-3 border-t-2 border-r-2 border-white rotate-[-45deg] rounded-sm mt-1" />
+                            )}
+                        </div>
+
+                        {/* RIGHT EYE */}
+                        <div className="w-4 h-4 flex items-center justify-center">
+                            {config.eyes === 'dead' && (
+                                <div className="relative w-4 h-4">
+                                    <div className="absolute inset-0 w-1 h-full bg-white left-1.5 rotate-45 rounded-full" />
+                                    <div className="absolute inset-0 w-1 h-full bg-white left-1.5 -rotate-45 rounded-full" />
+                                </div>
+                            )}
+                            {config.eyes === 'bored' && (
+                                <div className="w-4 h-1 bg-white rounded-full mt-1" />
+                            )}
+                            {(config.eyes === 'normal' || config.eyes === 'glowing') && (
+                                <motion.div 
+                                    animate={{ scaleY: [1, 0.1, 1] }} 
+                                    transition={{ repeat: Infinity, repeatDelay: 3, duration: 0.15 }}
+                                    className={`w-3 h-3 bg-white rounded-full shadow-[0_0_10px_white] ${config.eyes === 'glowing' ? 'animate-pulse shadow-[0_0_20px_white]' : ''}`} 
+                                />
+                            )}
+                            {config.eyes === 'happy' && (
+                                <div className="w-3 h-3 border-t-2 border-l-2 border-white rotate-[45deg] rounded-sm mt-1" />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* MOUTH */}
+                    <div className="flex justify-center h-4 items-start">
+                        {config.mouth === 'frown' && (
+                            <div className="w-4 h-4 border-t-2 border-white rounded-t-full mt-2" />
+                        )}
+                        {config.mouth === 'flat' && (
+                            <div className="w-4 h-1 bg-white rounded-full mt-1" />
+                        )}
+                        {config.mouth === 'smile' && (
+                            <div className="w-4 h-2 border-b-2 border-white rounded-b-full" />
+                        )}
+                        {config.mouth === 'big' && (
+                            <div className="w-6 h-3 bg-white rounded-b-full opacity-80" />
+                        )}
+                        {config.mouth === 'hyped' && (
+                            <div className="w-6 h-4 bg-white rounded-t-sm rounded-b-xl opacity-90 animate-pulse" />
+                        )}
+                    </div>
+                </div>
+
+                {/* Glare */}
+                <div className="absolute top-4 left-6 w-8 h-4 bg-white/10 rounded-full blur-[2px] -rotate-12" />
+            </div>
+            
+            {/* 4. Data Readouts */}
+            <div className="absolute -bottom-8 font-mono text-[9px] text-slate-500 flex gap-4 uppercase tracking-widest">
+                <span>Status: {stage.toUpperCase()}</span>
+                <span>Visc: {(percentage/100).toFixed(2)}</span>
+            </div>
+        </div>
+    );
+};
+
+// --- SETUP WIZARD ---
+const HydroSetup = ({ onComplete, onCancel, initialConfig }: { onComplete: (c: WaterConfig) => void, onCancel?: () => void, initialConfig?: WaterConfig }) => {
+    const [step, setStep] = useState(1);
+    
+    // Parse Initial Config for defaults
+    const parseTimeStr = (str?: string) => {
+        if (!str) return null;
+        const [h, m] = str.split(':').map(Number);
+        return { h, m };
+    };
+    
+    const initWake = parseTimeStr(initialConfig?.wakeTime) || { h: 7, m: 30 };
+    const initSleep = parseTimeStr(initialConfig?.sleepTime) || { h: 23, m: 0 };
+
+    const [goal, setGoal] = useState(initialConfig?.dailyGoal || 3);
+    const [wakeH, setWakeH] = useState(initWake.h); 
+    const [wakeM, setWakeM] = useState(initWake.m);
+    const [bedH, setBedH] = useState(initSleep.h); 
+    const [bedM, setBedM] = useState(initSleep.m);
+
+    const handleNext = () => {
+        playOrbitSound('click');
+        if (step < 2) setStep(step + 1);
+        else {
+            playOrbitSound('power_up');
+            const wTime = `${wakeH}:${wakeM}`;
+            const bTime = `${bedH}:${bedM}`;
+            const slots = generateSlots(goal, wTime, bTime);
+            
+            onComplete({
+                dailyGoal: goal,
+                wakeTime: wTime,
+                sleepTime: bTime,
+                adaptiveMode: true,
+                lastDate: new Date().toDateString(),
+                progress: [], 
+                slots
+            });
+        }
+    };
+
+    return (
+        <div className="h-full flex flex-col items-center justify-center p-6 text-center animate-fade-in relative">
+            {onCancel && (
+                <button onClick={onCancel} className="absolute top-0 right-0 p-3 text-slate-500 hover:text-white transition-colors">
+                    <X className="w-6 h-6" />
+                </button>
+            )}
+
+            <div className="mb-8">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 mx-auto flex items-center justify-center shadow-[0_0_40px_rgba(6,182,212,0.4)] mb-4 ring-2 ring-white/20">
+                    <Settings2 className="w-8 h-8 text-white animate-spin-slow" style={{ animationDuration: '10s' }} />
+                </div>
+                <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter">System<span className="text-cyan-400">Config</span></h2>
+                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mt-2">
+                    {step === 1 ? 'Target Volume Calibration' : 'Circadian Sync'}
+                </p>
+            </div>
+
+            <div className="w-full max-w-sm bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden shadow-2xl">
+                <AnimatePresence mode="wait">
+                    {step === 1 ? (
+                        <motion.div 
+                            key="step1"
+                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                        >
+                            <div className="mb-6">
+                                <span className="text-6xl font-black italic text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]">{goal}</span>
+                                <span className="text-xl font-bold text-slate-500 ml-1">LITERS</span>
+                            </div>
+                            <LiquidSlider value={goal} min={1} max={6} step={0.5} onChange={setGoal} label="DAILY TARGET" unit="L" />
+                        </motion.div>
+                    ) : (
+                        <motion.div 
+                            key="step2"
+                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                            className="space-y-6"
+                        >
+                            {/* Wake */}
+                            <div>
+                                <div className="flex items-center justify-center gap-2 mb-2 text-amber-400 font-mono text-xs uppercase tracking-widest">
+                                    <Sun className="w-4 h-4" /> System Wake
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <LiquidSlider value={wakeH} min={4} max={12} onChange={setWakeH} unit="H" />
+                                    <LiquidSlider value={wakeM} min={0} max={55} step={5} onChange={setWakeM} unit="M" />
+                                </div>
+                            </div>
+                            {/* Sleep */}
+                            <div>
+                                <div className="flex items-center justify-center gap-2 mb-2 text-indigo-400 font-mono text-xs uppercase tracking-widest">
+                                    <Moon className="w-4 h-4" /> Standby
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <LiquidSlider value={bedH} min={18} max={29} onChange={setBedH} unit="H" />
+                                    <LiquidSlider value={bedM} min={0} max={55} step={5} onChange={setBedM} unit="M" />
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <div className="flex gap-3 mt-6">
+                    {step === 2 && (
+                        <button onClick={() => setStep(1)} className="px-4 py-4 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 font-bold uppercase transition-colors">
+                            Back
+                        </button>
+                    )}
+                    <button onClick={handleNext} className="flex-1 py-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
+                        {step === 1 ? 'Next' : 'Initialize'} <ArrowRight className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const WaterTracker: React.FC<WaterTrackerProps> = ({ userConfig, onSaveConfig, username }) => {
-  // Config State
-  const [goal, setGoal] = useState(userConfig?.dailyGoal || 3);
-  const [recommendedGoal, setRecommendedGoal] = useState<number>(3);
-  const [medicalNote, setMedicalNote] = useState<string>("Analyzing local conditions...");
-  const [showConfig, setShowConfig] = useState(!userConfig);
+  const [localConfig, setLocalConfig] = useState<WaterConfig | undefined>(userConfig);
+  const [isSetup, setIsSetup] = useState(!!(userConfig?.slots && userConfig.slots.length > 0));
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<{weather: string, goal: number, msg: string} | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // Weather State
-  const [weather, setWeather] = useState<WeatherData>({
-    temp: 20,
-    humidity: 50,
-    conditionCode: 0,
-    isDay: true,
-    locationName: 'Sector 7',
-    loading: true
-  });
-  
-  // Tracker State
-  const [progress, setProgress] = useState<string[]>(userConfig?.progress || []);
-  const [isCelebrating, setIsCelebrating] = useState(false);
-  const [activeDrop, setActiveDrop] = useState<boolean>(false);
-
-  // --- 2. DOCTOR'S LOGIC ALGORITHM ---
-  const calculateMedicalGoal = (temp: number, humidity: number) => {
-     let base = 2.5; // Baseline for active student (Liters)
-     let reasons: string[] = ["Baseline metabolic need: 2.5L."];
-
-     // Temperature Factors
-     if (temp > 30) {
-        base += 1.0;
-        reasons.push(`EXTREME HEAT (${temp}°C): +1.0L for thermoregulation.`);
-     } else if (temp > 25) {
-        base += 0.5;
-        reasons.push(`Elevated Temp (${temp}°C): +0.5L for sweat compensation.`);
-     }
-
-     // Humidity Factors (Insensible Water Loss)
-     if (humidity < 30) {
-        base += 0.5;
-        reasons.push(`Dry Air (<30%): +0.5L for rapid evaporation.`);
-     } else if (humidity > 70 && temp > 25) {
-        base += 0.5;
-        reasons.push(`High Humidity + Heat: +0.5L. Cooling efficiency reduced.`);
-     }
-
-     // Round to nearest 0.5
-     const finalGoal = Math.round(base * 2) / 2;
-     
-     setRecommendedGoal(finalGoal);
-     setMedicalNote(reasons.join(" "));
-     
-     // Auto-update goal if this is first load or user hasn't overridden
-     if (!userConfig) {
-        setGoal(finalGoal);
-     }
-  };
-
-  // --- 1. WEATHER & ADAPTIVE LOGIC ---
-  const refreshWeather = () => {
-    playOrbitSound('click');
-    setWeather(prev => ({ ...prev, loading: true, error: undefined }));
-    
-    if (!navigator.geolocation) {
-       setWeather(prev => ({ ...prev, loading: false, error: "Geolocation not supported" }));
-       return;
-    }
-
-    navigator.geolocation.getCurrentPosition(async (position) => {
-       try {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          
-          // Parallel Fetch: Weather & Location Name
-          const [weatherRes, geoRes] = await Promise.all([
-             fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m`),
-             fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)
-          ]);
-
-          const weatherData = await weatherRes.json();
-          const geoData = await geoRes.json();
-          
-          const cityName = geoData.city || geoData.locality || geoData.principalSubdivision || "Unknown Sector";
-
-          if (weatherData.current_weather) {
-             const temp = weatherData.current_weather.temperature;
-             // Approximate current humidity from hourly data (taking the closest hour)
-             const hourIndex = new Date().getHours();
-             const humidity = weatherData.hourly.relativehumidity_2m[hourIndex] || 50;
-             
-             setWeather({
-                temp: temp,
-                humidity: humidity,
-                conditionCode: weatherData.current_weather.weathercode,
-                isDay: weatherData.current_weather.is_day === 1,
-                locationName: cityName,
-                loading: false
-             });
-
-             calculateMedicalGoal(temp, humidity);
+  // Hydration Check
+  useEffect(() => {
+      if (userConfig) {
+          setLocalConfig(userConfig);
+          const today = new Date().toDateString();
+          if (userConfig.lastDate !== today && userConfig.slots) {
+              const resetSlots = userConfig.slots.map(s => ({ ...s, isCompleted: false }));
+              onSaveConfig({ ...userConfig, lastDate: today, slots: resetSlots });
+          } else {
+              setIsSetup(!!(userConfig.slots && userConfig.slots.length > 0));
           }
-       } catch (e) {
-          setWeather(prev => ({ ...prev, loading: false, error: "Weather fetch failed" }));
-          calculateMedicalGoal(20, 50); // Fallback defaults
-       }
-    }, (err) => {
-       setWeather(prev => ({ ...prev, loading: false, error: "Location access denied" }));
-       calculateMedicalGoal(20, 50); // Fallback defaults
-    });
+      }
+  }, [userConfig]);
+
+  const handleConfigComplete = (config: WaterConfig) => {
+      setLocalConfig(config);
+      setIsSetup(true);
+      onSaveConfig(config);
   };
-
-  useEffect(() => {
-    refreshWeather();
-  }, []);
-
-  // --- 3. BIO-RHYTHM SLOT GENERATOR ---
-  const generateBioRhythmSlots = () => {
-    const glassSize = 0.5; // 500ml per slot
-    const totalSlotsNeeded = Math.ceil(goal / glassSize);
-    
-    const slots = [];
-
-    // Slot 1: Morning Flush
-    slots.push({
-      id: 'water-wake',
-      time: '07:30 AM',
-      amount: glassSize,
-      label: 'CORTISOL FLUSH',
-      icon: <Sun className="w-3 h-3" />
-    });
-
-    const remaining = totalSlotsNeeded - 1;
-    if (remaining <= 0) return slots;
-
-    // Distribute remainder from 9 AM to 9 PM
-    const startMin = 9 * 60;
-    const endMin = 21 * 60;
-    const interval = (endMin - startMin) / remaining;
-
-    for (let i = 0; i < remaining; i++) {
-       const minutes = Math.floor(startMin + (i * interval));
-       const h = Math.floor(minutes / 60);
-       const m = minutes % 60;
-       const ampm = h >= 12 ? 'PM' : 'AM';
-       const dispH = h > 12 ? h - 12 : (h === 0 || h === 24 ? 12 : h);
-       const timeStr = `${dispH}:${m.toString().padStart(2, '0')} ${ampm}`;
-
-       let label = 'HYDRATE';
-       let icon = <Droplet className="w-3 h-3" />;
-
-       if (h >= 9 && h < 11) { label = 'COGNITIVE LOAD'; icon = <Brain className="w-3 h-3" />; }
-       else if (h >= 11 && h < 14) { label = 'DIGESTION PREP'; icon = <Droplet className="w-3 h-3" />; }
-       else if (h >= 14 && h < 17) { label = 'ENERGY BRIDGE'; icon = <Brain className="w-3 h-3" />; }
-       else if (h >= 17) { label = 'RECOVERY'; icon = <Moon className="w-3 h-3" />; }
-
-       slots.push({ id: `water-${i}`, time: timeStr, amount: glassSize, label, icon });
-    }
-
-    return slots;
-  };
-
-  const slots = generateBioRhythmSlots();
-  const completedCount = progress.length;
-  const percentage = Math.round((completedCount / slots.length) * 100);
-
-  useEffect(() => {
-    if (percentage === 100 && !isCelebrating) {
-      playOrbitSound('success_chord');
-      setIsCelebrating(true);
-      setTimeout(() => setIsCelebrating(false), 8000);
-    }
-  }, [percentage]);
 
   const toggleSlot = (id: string) => {
-    if (progress.includes(id)) {
-      const newProg = progress.filter(p => p !== id);
-      setProgress(newProg);
-      save(newProg);
-      playOrbitSound('liquid_deactivate');
-    } else {
-      setActiveDrop(true);
-      playOrbitSound('click'); // Trigger drop
-      setTimeout(() => {
-         setActiveDrop(false);
-         playOrbitSound('water_splash');
-         const newProg = [...progress, id];
-         setProgress(newProg);
-         save(newProg);
-      }, 600);
-    }
+      if (!localConfig || !localConfig.slots) return;
+      
+      const target = localConfig.slots.find(s => s.id === id);
+      const newState = !target?.isCompleted;
+      
+      playOrbitSound(newState ? 'water_splash' : 'liquid_deactivate');
+
+      const updatedSlots = localConfig.slots.map(s => 
+          s.id === id ? { ...s, isCompleted: newState } : s
+      );
+      
+      const newConfig = { ...localConfig, slots: updatedSlots };
+      setLocalConfig(newConfig);
+      onSaveConfig(newConfig);
   };
 
-  const save = (currentProgress: string[]) => {
-    onSaveConfig({
-      dailyGoal: goal,
-      adaptiveMode: true,
-      lastDate: new Date().toDateString(),
-      progress: currentProgress
-    });
+  const handleEnterSetup = () => { playOrbitSound('click'); setIsSetup(false); };
+  const handleCancelSetup = () => { if (localConfig?.slots?.length) { playOrbitSound('click'); setIsSetup(true); } };
+
+  // --- AI LOGIC ---
+  const handleAISync = async () => {
+      if (!localConfig) return;
+      setIsAnalyzing(true);
+      playOrbitSound('power_up');
+
+      try {
+          if (!("geolocation" in navigator)) throw new Error("No Geo");
+          
+          const position: any = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+          const { latitude, longitude } = position.coords;
+
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          
+          const prompt = `
+            You are a hydration expert AI.
+            User Location: ${latitude}, ${longitude}.
+            User Goal: ${localConfig.dailyGoal} Liters.
+            Wake: ${localConfig.wakeTime}, Sleep: ${localConfig.sleepTime}.
+            Task:
+            1. Use Google Search to find current weather (Temp, Humidity).
+            2. Recommend adjusted water goal.
+            3. Provide a short, energetic, sci-fi style advice string.
+            Output strictly valid JSON: { "weather": "string", "new_goal": number, "message": "string" }
+          `;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+                responseMimeType: "application/json"
+            }
+          });
+
+          const text = response.text || "{}";
+          const jsonStr = text.replace(/```json|```/g, "").trim();
+          const data = JSON.parse(jsonStr);
+
+          if (data.new_goal) {
+              setAiResult({
+                  weather: data.weather || "Atmosphere Unstable",
+                  goal: data.new_goal,
+                  msg: data.message || "Optimization Complete."
+              });
+              playOrbitSound('success_chord');
+          }
+      } catch (e) {
+          console.error("AI Sync Failed", e);
+          alert("Neural Sync Failed: Check connectivity.");
+      } finally {
+          setIsAnalyzing(false);
+      }
   };
 
-  const handleConfigSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    playOrbitSound('success_chord');
-    setShowConfig(false);
-    save([]);
+  const applyAIRecommendation = () => {
+      if (!aiResult || !localConfig) return;
+      playOrbitSound('power_up');
+      
+      const newSlots = generateSlots(aiResult.goal, localConfig.wakeTime, localConfig.sleepTime);
+      
+      const newConfig = { 
+          ...localConfig, 
+          dailyGoal: aiResult.goal, 
+          slots: newSlots,
+          aiSuggestion: {
+              weather: aiResult.weather,
+              recommendedGoal: aiResult.goal,
+              message: aiResult.msg,
+              timestamp: new Date().toISOString()
+          }
+      };
+      
+      setLocalConfig(newConfig);
+      onSaveConfig(newConfig);
+      setAiResult(null);
   };
 
-  if (showConfig) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center p-4 animate-fade-in-up">
-        <div className="w-full max-w-2xl bg-slate-950 border border-white/10 rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5" />
-           
-           <div className="relative z-10">
-             <div className="flex items-center gap-2 mb-2">
-                 {weather.loading ? <Loader2 className="w-5 h-5 animate-spin text-cyan-500" /> : <MapPin className="w-5 h-5 text-cyan-500" />}
-                 <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">
-                    {weather.loading ? "Triangulating Location..." : `${weather.locationName} • ${weather.temp}°C / ${weather.humidity}% RH`}
-                 </span>
-             </div>
-             <h2 className="text-3xl sm:text-4xl font-black italic text-white uppercase mb-8">Adaptive <span className="text-cyan-500">Calibration</span></h2>
-             
-             <form onSubmit={handleConfigSubmit} className="space-y-8">
-                
-                {/* DOCTOR'S NOTE CARD */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/5 border border-cyan-500/20">
-                   <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                          <Activity className="w-5 h-5 text-cyan-400" />
-                          <h4 className="text-sm font-bold font-mono text-cyan-400 uppercase tracking-wider">Medical Analysis</h4>
-                      </div>
-                      <span className="text-[10px] bg-cyan-500 text-white px-2 py-0.5 rounded font-mono uppercase tracking-widest">
-                         AI Suggested
-                      </span>
-                   </div>
-                   <div className="flex items-end gap-4 mb-3">
-                      <span className="text-5xl font-black italic text-white">{recommendedGoal}L</span>
-                      <p className="text-xs text-slate-400 mb-2 max-w-[250px] leading-relaxed">
-                         {medicalNote}
-                      </p>
-                   </div>
-                </div>
+  // Calculations
+  const totalVolume = localConfig?.slots?.reduce((acc, s) => acc + s.amount, 0) || 0;
+  const consumed = localConfig?.slots?.filter(s => s.isCompleted).reduce((acc, s) => acc + s.amount, 0) || 0;
+  const percentage = totalVolume > 0 ? Math.round((consumed / totalVolume) * 100) : 0;
 
-                {/* User Override */}
-                <div className="space-y-4">
-                   <div className="flex justify-between items-end">
-                      <label className="text-[10px] font-bold font-mono text-slate-400 uppercase tracking-[0.2em]">
-                          Manual Override
-                       </label>
-                   </div>
-                   <LiquidSlider 
-                      value={goal} 
-                      onChange={setGoal} 
-                      min={2} 
-                      max={6} 
-                      step={0.5} 
-                      unit="L" 
-                      label="TARGET GOAL" 
-                   />
-                </div>
-
-                <div className="flex gap-3">
-                    <button type="button" onClick={() => setGoal(recommendedGoal)} className="flex-1 py-4 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-400 rounded-xl font-bold uppercase tracking-wider transition-all text-xs">
-                        Accept Recommended ({recommendedGoal}L)
-                    </button>
-                    <button type="submit" className="flex-1 py-4 bg-white hover:bg-cyan-400 text-slate-950 rounded-xl font-black italic uppercase tracking-wider shadow-xl transition-all flex items-center justify-center gap-2 text-xs">
-                        Initialize <ArrowRight className="w-4 h-4" />
-                    </button>
-                </div>
-             </form>
-           </div>
-        </div>
-      </div>
-    );
+  if (!isSetup) {
+      return <HydroSetup onComplete={handleConfigComplete} onCancel={localConfig?.slots ? handleCancelSetup : undefined} initialConfig={localConfig} />;
   }
 
   return (
-    <div className="relative min-h-[80vh] grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center animate-fade-in pb-20">
-      
-      {/* CELEBRATION OVERLAY */}
-      <div className={`fixed inset-0 z-[9999] bg-cyan-600 transition-all duration-[2000ms] pointer-events-none flex items-center justify-center overflow-hidden ${isCelebrating ? 'h-full opacity-100' : 'h-0 opacity-0'}`}>
-         {/* Confetti logic... */}
-         <div className="text-center z-10 transform scale-150 animate-bounce">
-            <h1 className="text-6xl sm:text-9xl font-black italic text-white drop-shadow-lg tracking-tighter">HYDRATED</h1>
-         </div>
-      </div>
-
-      {/* LEFT: SLOTS & WEATHER DASHBOARD */}
-      <div className="order-2 lg:order-1 h-[500px] lg:h-[600px] flex flex-col">
-         
-         {/* WEATHER WIDGET */}
-         <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-cyan-500/20 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <div className="p-3 bg-white/10 rounded-xl shadow-sm">
-                  {weather.loading ? <Loader2 className="w-6 h-6 animate-spin text-cyan-500" /> : 
-                   weather.temp > 25 ? <Sun className="w-6 h-6 text-amber-500" /> : 
-                   <CloudRain className="w-6 h-6 text-blue-500" />}
-               </div>
-               <div>
-                  <div className="flex items-center gap-2">
-                     <span className="text-2xl font-black italic text-white">{weather.loading ? "--" : weather.temp}°C</span>
-                     <div className="h-4 w-px bg-white/20" />
-                     <span className="text-sm font-mono text-slate-400 flex items-center gap-1">
-                        <Droplet className="w-3 h-3" /> {weather.loading ? "--" : weather.humidity}% RH
-                     </span>
-                  </div>
-                  <p className="text-[9px] font-mono text-cyan-400 uppercase tracking-widest mt-1">
-                     {weather.loading ? "Scanning Environment..." : weather.locationName.toUpperCase()}
-                  </p>
-               </div>
-            </div>
+    <div className="relative min-h-[85vh] w-full overflow-hidden rounded-[2.5rem] bg-[#020617] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col md:flex-row animate-fade-in group">
+        
+        {/* --- GLOBAL ATMOSPHERE --- */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/10 via-black to-purple-900/10 pointer-events-none" />
+        <HexGrid />
+        <Scanline />
+        
+        {/* --- LEFT PANEL: VISUALIZER (Bio-Reactor) --- */}
+        <div className="relative z-10 w-full md:w-1/2 p-6 sm:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/10 bg-black/20 backdrop-blur-sm">
             
-            {/* CONTROLS */}
-            <div className="flex items-center gap-2">
-                <button 
-                  onClick={refreshWeather}
-                  disabled={weather.loading}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 transition-all disabled:opacity-50"
-                  title="Refresh Weather"
+            {/* Header */}
+            <div className="flex justify-between items-start">
+                <div>
+                    <div className="flex items-center gap-2 text-cyan-400 font-mono text-[10px] uppercase tracking-[0.3em] mb-1">
+                        <Activity className="w-3 h-3 animate-pulse" /> Bio-Metric Uplink
+                    </div>
+                    <h2 className="text-4xl sm:text-5xl font-black italic text-white tracking-tighter pr-2">
+                        {percentage}% <span className="text-slate-600 text-xl">FULL</span>
+                    </h2>
+                    {localConfig?.aiSuggestion && (
+                        <div className="flex items-center gap-1.5 mt-2 text-[9px] font-mono text-purple-400 uppercase tracking-widest opacity-80">
+                            <CloudLightning className="w-3 h-3" /> {localConfig.aiSuggestion.weather}
+                        </div>
+                    )}
+                </div>
+                
+                <div className="flex gap-2">
+                    <button 
+                        onClick={handleAISync} 
+                        disabled={isAnalyzing}
+                        className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                        title="AI Weather Sync"
+                    >
+                        {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    </button>
+                    <button onClick={handleEnterSetup} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white transition-colors" title="Settings">
+                        <Settings2 className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Visualizer */}
+            <div className="flex-1 flex flex-col items-center justify-center py-8">
+                <BioReactor percentage={percentage} mood={isAnalyzing ? 'analyzing' : undefined} />
+                
+                <div className="mt-8 px-6 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md max-w-xs text-center">
+                    <p className={`text-xs font-mono uppercase tracking-widest leading-relaxed ${percentage < 30 ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`}>
+                        {isAnalyzing ? "CONNECTING TO SATELLITE ARRAY..." : 
+                         localConfig?.aiSuggestion ? localConfig.aiSuggestion.message :
+                         percentage < 20 ? "CRITICAL FAILURE IMMINENT. INTAKE REQUIRED." : 
+                         percentage < 50 ? "SYSTEMS FUNCTIONAL. EFFICIENCY SUB-OPTIMAL." :
+                         percentage < 80 ? "OPERATING WITHIN NORMAL PARAMETERS." :
+                         percentage < 100 ? "OPTIMAL PERFORMANCE REACHED." :
+                         "TRANSCENDENCE ACHIEVED. MAXIMUM POWER."}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {/* --- RIGHT PANEL: FUEL GAUGE (Timeline) --- */}
+        <div className="relative z-10 w-full md:w-1/2 bg-black/40 flex flex-col h-full overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/20">
+                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em]">Intake Schedule</span>
+                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em]">
+                    {consumed} / {totalVolume} ml
+                </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 relative" ref={scrollContainerRef}>
+                <div className="absolute left-9 top-0 bottom-0 w-px bg-white/10 h-full z-0" />
+                
+                <div className="space-y-6 relative z-10">
+                    {localConfig?.slots?.map((slot, idx) => {
+                        const isNext = !slot.isCompleted && (idx === 0 || localConfig.slots![idx-1].isCompleted);
+                        
+                        return (
+                            <div 
+                                key={slot.id}
+                                onClick={() => toggleSlot(slot.id)}
+                                className={`relative group cursor-pointer transition-all duration-300 ${slot.isCompleted ? 'opacity-50 hover:opacity-100' : isNext ? 'opacity-100 scale-105' : 'opacity-40'}`}
+                            >
+                                <div className="flex items-center gap-6">
+                                    {/* Icon / Node */}
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 transition-all duration-300 ${slot.isCompleted ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.6)]' : isNext ? 'bg-black border-white text-white animate-pulse' : 'bg-black border-slate-700 text-slate-700'}`}>
+                                        {slot.isCompleted && <Check className="w-3.5 h-3.5 text-black stroke-[4]" />}
+                                        {isNext && !slot.isCompleted && <div className="w-2 h-2 bg-white rounded-full" />}
+                                    </div>
+
+                                    {/* Content Card */}
+                                    <div className={`flex-1 p-4 rounded-xl border transition-all duration-300 ${slot.isCompleted ? 'bg-cyan-900/10 border-cyan-500/30' : isNext ? 'bg-white/10 border-white/30 shadow-lg' : 'bg-transparent border-transparent hover:bg-white/5'}`}>
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${slot.isCompleted ? 'text-cyan-400' : isNext ? 'text-white' : 'text-slate-500'}`}>
+                                                    {slot.time}
+                                                </div>
+                                                <div className={`text-sm font-bold uppercase ${slot.isCompleted ? 'text-slate-400 line-through decoration-cyan-500/50' : 'text-slate-200'}`}>
+                                                    {slot.label}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-xs font-black font-mono text-slate-400">{slot.amount}ml</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+
+        {/* --- AI RESULT MODAL (OVERLAY) --- */}
+        <AnimatePresence>
+            {aiResult && (
+                <motion.div 
+                    initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+                    animate={{ opacity: 1, backdropFilter: 'blur(10px)' }}
+                    exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+                    className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-8 text-center"
                 >
-                   <RefreshCw className={`w-3.5 h-3.5 text-slate-300 ${weather.loading ? 'animate-spin' : ''}`} />
-                   <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider hidden sm:inline">Refresh</span>
-                </button>
-                <button onClick={() => { setShowConfig(true); playOrbitSound('click'); }} className="p-2 rounded-full hover:bg-white/10 transition-colors">
-                   <Settings className="w-5 h-5 text-slate-400" />
-                </button>
-            </div>
-         </div>
-
-         <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar relative">
-            {slots.map((slot) => {
-               const isDone = progress.includes(slot.id);
-               return (
-                  <button 
-                     key={slot.id}
-                     onClick={() => toggleSlot(slot.id)}
-                     disabled={isDone}
-                     className={`w-full p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-between group relative overflow-hidden ${isDone ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-slate-950/80 border-white/5 hover:border-cyan-400'}`}
-                  >
-                     <div className="flex items-center gap-4 relative z-10">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${isDone ? 'bg-cyan-500 border-cyan-500 text-white' : 'border-slate-700 text-transparent group-hover:border-cyan-400'}`}>
-                           <Check className="w-4 h-4" />
+                    <div className="w-20 h-20 rounded-full border border-purple-500/30 bg-purple-900/20 flex items-center justify-center mb-6 shadow-[0_0_60px_rgba(168,85,247,0.3)] animate-pulse-slow">
+                        <Thermometer className="w-8 h-8 text-purple-400" />
+                    </div>
+                    <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-2">Analysis Complete</h3>
+                    <p className="text-purple-300 font-mono text-xs uppercase tracking-[0.2em] mb-8 border border-purple-500/30 px-3 py-1 rounded-full">{aiResult.weather}</p>
+                    
+                    <div className="bg-gradient-to-b from-white/10 to-transparent border border-white/10 p-8 rounded-3xl mb-8 w-full max-w-sm">
+                        <div className="flex justify-between items-end mb-4 opacity-60">
+                            <span className="text-[10px] font-mono uppercase tracking-widest">Current</span>
+                            <span className="text-[10px] font-mono uppercase tracking-widest">Target</span>
                         </div>
-                        <div className="text-left">
-                           <div className="flex items-center gap-2">
-                              <p className={`text-lg font-black font-mono tracking-tight ${isDone ? 'text-cyan-400' : 'text-slate-300'}`}>{slot.time}</p>
-                              <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest flex items-center gap-1 ${isDone ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/10 text-slate-500'}`}>
-                                 {slot.icon} {slot.label}
-                              </div>
-                           </div>
-                           <p className="text-[9px] text-slate-400 uppercase tracking-widest">500ML Unit</p>
+                        <div className="flex justify-between items-center mb-6">
+                            <span className="text-3xl font-black text-slate-500">{localConfig?.dailyGoal}L</span>
+                            <div className="flex-1 h-px bg-white/20 mx-4 relative"><ChevronRight className="absolute right-0 -top-2 w-4 h-4 text-white" /></div>
+                            <span className="text-5xl font-black text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]">{aiResult.goal}L</span>
                         </div>
-                     </div>
-                     {isDone && <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-transparent w-full h-full" />}
-                  </button>
-               )
-            })}
-         </div>
-      </div>
+                        <p className="text-[10px] text-slate-300 font-mono leading-relaxed bg-black/40 p-4 rounded-xl border border-white/5">
+                            "{aiResult.msg}"
+                        </p>
+                    </div>
 
-      {/* RIGHT: REALISTIC GLASS */}
-      <div className="order-1 lg:order-2 flex flex-col items-center justify-center relative">
-         {/* Simulated Drop */}
-         <div className={`absolute top-0 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ease-in ${activeDrop ? 'translate-y-[300px] opacity-0 scale-50' : '-translate-y-20 opacity-100 scale-100'}`}>
-            <div className={`w-6 h-6 bg-cyan-400 rounded-tr-full rounded-bl-full rounded-br-full rotate-45 shadow-[0_0_15px_#22d3ee] ${activeDrop ? 'block' : 'hidden'}`} />
-         </div>
-
-         {/* The Glass Container */}
-         <div className="relative w-48 h-80 sm:w-60 sm:h-96 rounded-b-[4rem] border-x-4 border-b-[12px] border-white/20 bg-gradient-to-b from-white/5 to-white/10 backdrop-blur-sm shadow-[0_0_50px_rgba(6,182,212,0.1)] overflow-hidden">
-            <div className="absolute top-0 left-2 w-2 h-full bg-white/20 rounded-full blur-[2px]" />
-            <div 
-               className="absolute bottom-0 left-0 w-full bg-cyan-500/80 transition-all duration-1000 ease-in-out flex items-start justify-center overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.2)]"
-               style={{ height: `${percentage}%` }}
-            >
-               <div className="absolute top-0 w-[200%] h-4 bg-cyan-400 opacity-50 animate-shimmer" style={{ transform: 'translateY(-50%)' }} />
-               {/* Bubbles */}
-               <div className="absolute inset-0 w-full h-full">
-                  {Array.from({length: 8}).map((_, i) => (
-                     <div key={i} className="absolute bg-white/40 rounded-full animate-float" 
-                          style={{ width: Math.random() * 8 + 'px', height: Math.random() * 8 + 'px', left: Math.random() * 100 + '%', bottom: '-20px', animationDuration: Math.random() * 3 + 2 + 's' }} 
-                     />
-                  ))}
-               </div>
-            </div>
-            <div className="absolute inset-0 pointer-events-none">
-               {[25, 50, 75].map(tick => (<div key={tick} className="absolute w-4 h-0.5 bg-white/30 right-0" style={{ bottom: `${tick}%` }} />))}
-            </div>
-         </div>
-
-         <div className="w-40 h-4 bg-black/20 blur-xl rounded-[100%] mt-8" />
-         
-         <div className="mt-8 text-center">
-            <h3 className="text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 tabular-nums">
-               {(completedCount * 0.5).toFixed(1)} <span className="text-lg text-slate-500 not-italic">/ {goal}L</span>
-            </h3>
-            <div className="flex items-center justify-center gap-2 mt-2 text-[9px] font-mono text-cyan-600 uppercase tracking-widest animate-pulse">
-               <Dna className="w-3 h-3" /> Adaptive Target
-            </div>
-         </div>
-      </div>
+                    <div className="flex gap-4 w-full max-w-sm">
+                        <button onClick={() => setAiResult(null)} className="flex-1 py-4 rounded-xl border border-white/10 text-slate-400 hover:text-white font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-colors">
+                            Dismiss
+                        </button>
+                        <button onClick={applyAIRecommendation} className="flex-1 py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-widest shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all hover:scale-105">
+                            Engage Sync
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     </div>
   );
 };

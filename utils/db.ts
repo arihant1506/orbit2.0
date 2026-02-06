@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { UserProfile, WeekSchedule, UniversitySchedule } from '../types';
 import { INITIAL_SCHEDULE, UNI_SCHEDULE, BLANK_UNI_SCHEDULE, BLANK_SCHEDULE } from '../constants';
@@ -70,9 +69,19 @@ const hydrateProfile = (profile: UserProfile): UserProfile => {
         theme: 'dark' as const, 
         startOfWeek: 'Monday' as const, 
         timeFormat: '12h' as const, 
+        soundEnabled: true,
+        reducedMotion: false,
+        haptics: true,
         notifications: { water: true, schedule: true, academic: true }
     },
-    waterConfig: { dailyGoal: 3, adaptiveMode: true, lastDate: new Date().toDateString(), progress: [] }
+    waterConfig: { 
+        dailyGoal: 3, 
+        adaptiveMode: true, 
+        lastDate: new Date().toDateString(), 
+        progress: [],
+        wakeTime: "07:00",
+        sleepTime: "23:00"
+    }
   };
 
   const hydrated: UserProfile = {

@@ -44,7 +44,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ users, onResetUser, onDele
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-mono text-[10px] uppercase tracking-[0.4em] mb-3">
                      <Activity className="w-3 h-3" /> Master Command Dashboard
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase font-sans mb-2">
+                  <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase font-sans mb-2 pr-2">
                     PILOT <span className="text-amber-500">DIRECTORY</span>
                   </h2>
                   <p className="text-xs font-mono text-amber-700/60 dark:text-amber-500/60 uppercase tracking-widest max-w-md">

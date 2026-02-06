@@ -1,8 +1,8 @@
 
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, RadarChart, PolarGrid, PolarAngleAxis, Radar, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { WeekSchedule, ScheduleSlot, WeeklyStats, DailyStat, Category } from '../types';
-import { Activity, Zap, Brain, Grid, Cpu, Terminal as TerminalIcon, Database, Calendar, Flame, Layers, History } from 'lucide-react';
+import { Activity, Zap, Brain, Grid, Cpu, Terminal as TerminalIcon, Database, Calendar, Flame, Layers, History, BarChart2 } from 'lucide-react';
 
 interface WeeklyReportProps {
   schedule: WeekSchedule;
@@ -105,7 +105,6 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
   const streakData = useMemo(() => {
       const dates = Object.keys(dailyStats).sort();
       let currentStreak = 0;
-      let bestStreak = 0;
       
       // Calculate active streak walking backwards from today
       const today = new Date();
@@ -131,10 +130,32 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
       return { current: currentStreak };
   }, [dailyStats]);
 
-  // --- 3. HEATMAP DATA ---
+  // --- 3. VELOCITY DATA (Last 7 Days) ---
+  const velocityData = useMemo(() => {
+      const data = [];
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          const stat = dailyStats[iso];
+          const percentage = stat && stat.t > 0 ? Math.round((stat.c / stat.t) * 100) : 0;
+          
+          data.push({
+              day: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+              date: iso,
+              percentage,
+              completed: stat?.c || 0,
+              total: stat?.t || 0
+          });
+      }
+      return data;
+  }, [dailyStats]);
+
+  // --- 4. HEATMAP DATA ---
   const heatmapCells = useMemo(() => getHeatmapDays(dailyStats), [dailyStats]);
 
-  // Custom Tooltip for Pie Chart
+  // Custom Tooltips
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -151,6 +172,26 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
       );
     }
     return null;
+  };
+
+  const VelocityTooltip = ({ active, payload }: any) => {
+      if (active && payload && payload.length) {
+          const d = payload[0].payload;
+          return (
+              <div className="bg-[#050505] border border-white/10 p-3 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+                  <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">{d.day} • {d.date}</div>
+                  <div className="flex items-center gap-2">
+                      <div className={`text-2xl font-black italic tracking-tighter ${d.percentage >= 80 ? 'text-emerald-400' : d.percentage >= 50 ? 'text-cyan-400' : 'text-red-400'}`}>
+                          {d.percentage}%
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded border border-white/5">
+                          {d.completed}/{d.total} TASKS
+                      </div>
+                  </div>
+              </div>
+          );
+      }
+      return null;
   };
 
   return (
@@ -235,6 +276,66 @@ export const WeeklyReport: React.FC<WeeklyReportProps> = ({ schedule, lastWeekSt
                       ))}
                   </div>
               </div>
+          </div>
+      </div>
+
+      {/* --- DAILY VELOCITY CHART --- */}
+      <div className="p-6 sm:p-8 rounded-[2rem] bg-[#08080a] border border-white/10 relative overflow-hidden group shadow-xl">
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 mix-blend-overlay" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 relative z-10 gap-4">
+              <div>
+                  <div className="flex items-center gap-2 text-blue-400 font-mono text-[10px] uppercase tracking-[0.3em] mb-2">
+                      <BarChart2 className="w-4 h-4" /> Kinetic Velocity
+                  </div>
+                  <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Daily Throughput</h3>
+              </div>
+              <div className="text-right">
+                  <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/5">Last 7 Cycles</div>
+              </div>
+          </div>
+
+          <div className="h-64 w-full relative z-10">
+              <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={velocityData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barSize={36}>
+                      <defs>
+                          <linearGradient id="barGradientHigh" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#34d399" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#059669" stopOpacity={0.6}/>
+                          </linearGradient>
+                          <linearGradient id="barGradientMid" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22d3ee" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#0891b2" stopOpacity={0.6}/>
+                          </linearGradient>
+                          <linearGradient id="barGradientLow" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f87171" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.6}/>
+                          </linearGradient>
+                      </defs>
+                      <XAxis 
+                          dataKey="day" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'Space Grotesk', fontWeight: 'bold' }} 
+                          dy={10}
+                      />
+                      <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#475569', fontSize: 9, fontFamily: 'Space Grotesk' }} 
+                          domain={[0, 100]}
+                      />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)', radius: 8 }} content={<VelocityTooltip />} />
+                      <Bar dataKey="percentage" radius={[8, 8, 8, 8]}>
+                          {velocityData.map((entry, index) => (
+                              <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={entry.percentage >= 80 ? 'url(#barGradientHigh)' : entry.percentage >= 50 ? 'url(#barGradientMid)' : 'url(#barGradientLow)'} 
+                                  strokeWidth={0}
+                              />
+                          ))}
+                      </Bar>
+                  </BarChart>
+              </ResponsiveContainer>
           </div>
       </div>
 

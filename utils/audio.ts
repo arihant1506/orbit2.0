@@ -15,7 +15,8 @@ type SoundType =
   | 'water_splash'
   | 'power_up'
   | 'bell_normal'
-  | 'alarm_critical';
+  | 'alarm_critical'
+  | 'greeting';
 
 let audioCtx: AudioContext | null = null;
 
@@ -265,6 +266,38 @@ export const playOrbitSound = (type: SoundType) => {
          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
          osc.start(t);
          osc.stop(t + 0.6);
+         break;
+      
+      case 'greeting':
+         // Cheerful high-pitch chirp (Hi!)
+         osc.type = 'sine';
+         osc.frequency.setValueAtTime(600, t);
+         osc.frequency.exponentialRampToValueAtTime(1000, t + 0.1);
+         osc.frequency.exponentialRampToValueAtTime(800, t + 0.3);
+         
+         gain.gain.setValueAtTime(0, t);
+         gain.gain.linearRampToValueAtTime(0.1, t + 0.05);
+         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+         
+         osc.start(t);
+         osc.stop(t + 0.4);
+
+         // Harmonic
+         const gOsc2 = ctx.createOscillator();
+         const gGain2 = ctx.createGain();
+         gOsc2.connect(gGain2);
+         gGain2.connect(ctx.destination);
+         
+         gOsc2.type = 'triangle';
+         gOsc2.frequency.setValueAtTime(1200, t);
+         gOsc2.frequency.linearRampToValueAtTime(1600, t + 0.1);
+         
+         gGain2.gain.setValueAtTime(0, t);
+         gGain2.gain.linearRampToValueAtTime(0.03, t + 0.05);
+         gGain2.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+         
+         gOsc2.start(t);
+         gOsc2.stop(t + 0.4);
          break;
     }
   } catch (e) {

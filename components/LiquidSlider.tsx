@@ -24,7 +24,6 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
   const [width, setWidth] = useState(0);
   const [isActive, setIsActive] = useState(false);
 
-  // Measure track width with ResizeObserver (Robust for Device Preview)
   useEffect(() => {
     if (!constraintsRef.current) return;
 
@@ -34,10 +33,8 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
         }
     };
 
-    // Initial check
     updateWidth();
 
-    // Safe ResizeObserver check
     if (typeof ResizeObserver !== 'undefined') {
         try {
             const observer = new ResizeObserver(() => {
@@ -51,21 +48,18 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
     }
   }, []);
 
-  // --- PHYSICS ENGINE ---
   const x = useMotionValue(0);
-  const xSpring = useSpring(x, { stiffness: 400, damping: 28 }); // Snappy but smooth
+  const xSpring = useSpring(x, { stiffness: 400, damping: 28 });
   const velocity = useVelocity(xSpring);
   
-  // Subtle Deformation for stability
   const scaleX = useTransform(velocity, [-1500, 0, 1500], [1.2, 1, 1.2]);
   const scaleY = useTransform(velocity, [-1500, 0, 1500], [0.8, 1, 0.8]);
   const skewX = useTransform(velocity, [-1500, 0, 1500], [20, 0, -20]);
 
-  // Sync external value
   useEffect(() => {
     if (!isActive && width > 0) {
       const percentage = (value - min) / (max - min);
-      const thumbSize = 48; // Estimate matching CSS width
+      const thumbSize = 48;
       const availableWidth = width - thumbSize;
       const targetX = percentage * availableWidth;
       xSpring.set(targetX);
@@ -74,7 +68,7 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
 
   const handleDrag = () => {
     if (!constraintsRef.current) return;
-    const thumbSize = 48; // Must match CSS width roughly
+    const thumbSize = 48;
     const availableWidth = width - thumbSize;
     
     const currentX = xSpring.get();
@@ -111,25 +105,21 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
           </div>
        </div>
        
-       {/* Track */}
        <div 
          className="relative h-12 sm:h-14 flex items-center" 
          ref={constraintsRef}
        >
           <div className="absolute inset-x-0 h-3 sm:h-4 bg-white/5 rounded-full border border-white/10 shadow-inner overflow-hidden backdrop-blur-md">
-             {/* Blurred Glow Background */}
              <motion.div 
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-900/40 via-blue-800/40 to-purple-800/40 blur-sm opacity-60"
                 style={{ width: backgroundWidth }}
              />
-             {/* Sharp Progress Line */}
              <motion.div 
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 opacity-90"
                 style={{ width: backgroundWidth }}
              />
           </div>
 
-          {/* Liquid Glass Thumb */}
           <motion.div
             drag="x"
             dragConstraints={constraintsRef}
@@ -141,25 +131,15 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
             style={{ x: xSpring, scaleX, scaleY, skewX, zIndex: 20 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 1.15 }}
-            className="absolute top-0 bottom-0 my-auto w-10 h-10 sm:w-12 sm:h-12 -ml-0 cursor-grab active:cursor-grabbing"
+            className="absolute top-0 bottom-0 my-auto w-12 h-12 -ml-0 cursor-grab active:cursor-grabbing"
           >
-             {/* The Thumb Bubble */}
              <div className="w-full h-full rounded-full relative shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
-                
-                {/* 1. Main Glass Body */}
                 <div className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-[10px] border border-white/30 overflow-hidden">
-                    
-                    {/* Iridescent Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/20 to-purple-500/20 mix-blend-overlay" />
-                    
-                    {/* Shinning Animation */}
                     <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-shimmer" style={{ animationDuration: '3s' }} />
-                    
-                    {/* Top Gloss */}
                     <div className="absolute top-0 left-0 w-full h-[40%] bg-gradient-to-b from-white/20 to-transparent" />
                 </div>
                 
-                {/* 2. Center Indicator */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <motion.div 
                       className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_white]"
@@ -168,7 +148,6 @@ export const LiquidSlider: React.FC<LiquidSliderProps> = ({ value, min, max, ste
                 </div>
              </div>
 
-             {/* 3. Outer Glow / Bloom */}
              <motion.div 
                 className="absolute -inset-3 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 blur-lg rounded-full -z-10"
                 animate={{ opacity: isActive ? 0.8 : 0, scale: isActive ? 1.2 : 1 }}

@@ -75,6 +75,9 @@ export interface UserPreferences {
   theme: ThemeMode;
   startOfWeek: 'Monday' | 'Sunday';
   timeFormat: '12h' | '24h';
+  soundEnabled: boolean; // New
+  reducedMotion: boolean; // New
+  haptics: boolean; // New
   notifications: NotificationPreferences;
 }
 
@@ -100,11 +103,28 @@ export interface AuthState {
   users: Record<string, UserProfile>;
 }
 
+export interface WaterSlot {
+    id: string;
+    time: string; // "10:30 AM"
+    amount: number; // 250
+    isCompleted: boolean;
+    label: string; // "Morning Hydration"
+}
+
 export interface WaterConfig {
-  dailyGoal: number; // Liters (5-10)
+  dailyGoal: number; // Liters (e.g. 3)
+  wakeTime: string; // "07:30" (24h format for easier calc)
+  sleepTime: string; // "23:00"
   adaptiveMode: boolean;
-  lastDate: string; // To reset daily
-  progress: string[]; // Array of completed time slot IDs
+  lastDate: string; 
+  progress: string[]; // Legacy: List of IDs
+  slots?: WaterSlot[]; // New: Generated Schedule
+  aiSuggestion?: { // New: AI Weather Sync Data
+      weather: string;
+      recommendedGoal: number;
+      message: string;
+      timestamp: string;
+  };
 }
 
 export interface OrbitNotification {

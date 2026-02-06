@@ -2,16 +2,14 @@
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScheduleSlot, Category } from '../types';
-import { Check, Edit3, Trash2, Plus, X, Activity, Zap, Moon, Terminal, Sparkles, Brain, Briefcase, Clock, ArrowRight, Play, Pause } from 'lucide-react';
+import { Check, Edit3, Trash2, Plus, X, Activity, Terminal, Sparkles, Brain, Briefcase, Clock, ArrowRight, Play } from 'lucide-react';
 import { playOrbitSound } from '../utils/audio';
 import { AromaOrb } from './AromaOrb';
 import { LiquidSlider } from './LiquidSlider';
 
 // --- ENHANCED THEME CONFIGURATION ---
-// High-Contrast Glossy Theme for "Classy Dark" mode
 const THEME_CONFIG: Record<Category, any> = {
   Physical: { 
-    // Increased opacity (from /40 to /80) for better text contrast
     glass: 'bg-gradient-to-br from-orange-950/80 via-[#1a1005]/90 to-black/80', 
     border: 'border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.1)]', 
     accent: 'bg-orange-500', 
@@ -68,7 +66,7 @@ const THEME_CONFIG: Record<Category, any> = {
     subText: 'text-indigo-300',
     tint: '#6366f1',
     gradient: 'from-indigo-500/20 via-indigo-600/10 to-transparent',
-    icon: Moon,
+    icon: Sparkles, 
     glow: 'shadow-[0_0_40px_-10px_rgba(99,102,241,0.3)]'
   },
   Logistics: { 
@@ -121,17 +119,22 @@ const checkIsActive = (timeRange: string, currentMinutes: number): boolean => {
 // --- SUB-COMPONENTS ---
 
 const LiquidToggle = memo(({ isCompleted, onToggle, theme }: { isCompleted: boolean, onToggle: (e: any) => void, theme: any }) => {
+    const activeStyle = { backgroundColor: `${theme.tint}1A`, borderColor: `${theme.tint}80` };
+    
     return (
         <div 
-            className="relative w-16 h-8 sm:w-20 sm:h-9 rounded-full cursor-pointer select-none touch-none group will-change-transform"
+            className="relative w-16 h-8 sm:w-20 sm:h-9 rounded-full cursor-pointer select-none touch-none group will-change-transform tap-highlight-transparent"
             onClick={(e) => {
                playOrbitSound(isCompleted ? 'liquid_deactivate' : 'liquid_activate');
                onToggle(e);
             }}
         >
-            <div className={`absolute inset-0 rounded-full border transition-all duration-500 ease-out backdrop-blur-sm ${isCompleted ? `bg-${theme.tint}/10 border-${theme.tint}/50` : 'bg-black/60 border-white/20'}`}>
+            <div 
+                className={`absolute inset-0 rounded-full border transition-all duration-500 ease-out backdrop-blur-sm ${!isCompleted ? 'bg-black/60 border-white/20' : ''}`}
+                style={isCompleted ? activeStyle : undefined}
+            >
                  {/* Internal Glow */}
-                 {isCompleted && <div className={`absolute inset-0 rounded-full opacity-40 blur-md bg-${theme.tint}`} style={{ backgroundColor: theme.tint }} />}
+                 {isCompleted && <div className="absolute inset-0 rounded-full opacity-40 blur-md" style={{ backgroundColor: theme.tint }} />}
             </div>
             
             <motion.div
@@ -190,7 +193,7 @@ const MemoizedSlotCard = memo(({ slot, dayName, onAction, onRemove, onEdit, curr
                         {isActive ? 'ACTIVE' : 'SCHEDULED'}
                     </div>
 
-                    {/* Time Digits */}
+                    {/* Time Digits - Scaled down slightly for mobile safety */}
                     <div className={`text-3xl md:text-4xl font-black font-mono tracking-tighter leading-none ${isActive ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]' : 'text-slate-200'}`}>
                         {startStr.replace(/[AP]M/i, '').trim()}
                         <span className="text-xs md:text-sm font-bold text-slate-500 ml-1 align-top">{startStr.slice(-2)}</span>
@@ -220,7 +223,7 @@ const MemoizedSlotCard = memo(({ slot, dayName, onAction, onRemove, onEdit, curr
                    )}
                 </div>
 
-                <h3 className={`text-xl md:text-3xl font-black italic uppercase tracking-tight leading-[0.95] mb-2 break-words transition-colors duration-300 drop-shadow-md ${isDone ? 'line-through decoration-white/20 text-slate-500' : 'text-white'}`}>
+                <h3 className={`text-xl md:text-3xl font-black italic uppercase tracking-tight leading-[0.95] mb-2 break-words transition-colors duration-300 drop-shadow-md pr-1 ${isDone ? 'line-through decoration-white/20 text-slate-500' : 'text-white'}`}>
                     {slot.title}
                 </h3>
                 
@@ -239,28 +242,27 @@ const MemoizedSlotCard = memo(({ slot, dayName, onAction, onRemove, onEdit, curr
                     <LiquidToggle isCompleted={isDone} onToggle={(e) => onAction(dayName, slot.id, isDone, e)} theme={theme} />
                 </div>
 
-                {/* Edit/Delete Tools */}
+                {/* Edit/Delete Tools - Always visible on mobile for ease */}
                 <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                     <button 
                         onClick={(e) => { e.stopPropagation(); onEdit(slot); }} 
-                        className="p-2.5 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-95"
+                        className="p-3 md:p-2.5 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-95"
                         title="Edit Slot"
                     >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-5 h-5 md:w-4 md:h-4" />
                     </button>
                     <button 
                         onClick={(e) => { e.stopPropagation(); playOrbitSound('delete'); onRemove(slot.id); }} 
-                        className="p-2.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-95"
+                        className="p-3 md:p-2.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-95"
                         title="Delete Slot"
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5 md:w-4 md:h-4" />
                     </button>
                 </div>
             </div>
         </div>
     );
 }, (prev, next) => {
-    // Custom comparison for performance optimization
     if (prev.slot !== next.slot) return false;
     if (prev.dayName !== next.dayName) return false;
     const prevActive = checkIsActive(prev.slot.timeRange, prev.currentMinutes);
@@ -286,7 +288,7 @@ const OrbitalDayTracker = memo(({ progress, dayName, slots }: { progress: number
   const timePercent = Math.max(0, Math.min(100, (currentMinutes / totalMinutes) * 100));
 
   return (
-    <div className="relative w-full h-56 sm:h-64 rounded-[2.5rem] bg-[#050505] border border-white/10 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] overflow-hidden group select-none transition-all hover:scale-[1.005] will-change-transform transform-gpu">
+    <div className="relative w-full h-auto sm:h-64 rounded-[2.5rem] bg-[#050505] border border-white/10 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] overflow-hidden group select-none transition-all hover:scale-[1.005] will-change-transform transform-gpu">
        {/* Cinematic Background */}
        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-luminosity" />
        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
@@ -298,7 +300,7 @@ const OrbitalDayTracker = memo(({ progress, dayName, slots }: { progress: number
                     <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
                     <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-[0.3em]">System Active</span>
                 </div>
-                <h2 className="text-4xl sm:text-6xl font-black italic text-white tracking-tighter uppercase drop-shadow-2xl">
+                <h2 className="text-4xl sm:text-6xl font-black italic text-white tracking-tighter uppercase drop-shadow-2xl pr-2">
                    {dayName}
                 </h2>
              </div>
@@ -308,12 +310,12 @@ const OrbitalDayTracker = memo(({ progress, dayName, slots }: { progress: number
              </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full mt-4 sm:mt-0">
              {/* Stat 1 */}
              <div className="col-span-1 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                  <div className="text-[9px] font-mono text-slate-400 uppercase tracking-widest mb-1">Efficiency</div>
                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-white tracking-tighter">{progress}</span>
+                    <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter">{progress}</span>
                     <span className="text-sm font-bold text-cyan-400">%</span>
                  </div>
                  <div className="w-full h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
@@ -325,7 +327,7 @@ const OrbitalDayTracker = memo(({ progress, dayName, slots }: { progress: number
              <div className="col-span-1 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                  <div className="text-[9px] font-mono text-slate-400 uppercase tracking-widest mb-1">Tasks Done</div>
                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-white tracking-tighter">{completedTasks}</span>
+                    <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter">{completedTasks}</span>
                     <span className="text-sm font-bold text-slate-500">/ {totalTasks}</span>
                  </div>
              </div>
@@ -382,17 +384,14 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
 
   // --- AUTO-SCROLL TO ACTIVE SLOT LOGIC ---
   useEffect(() => {
-    // Reset scroll flag if day changes so we scroll again
     hasScrolledRef.current = false;
   }, [dayName]);
 
   useEffect(() => {
     if (hasScrolledRef.current || slots.length === 0) return;
 
-    // 1. Try to find the currently active slot
     let activeSlot = slots.find(s => checkIsActive(s.timeRange, currentMinutes));
     
-    // 2. If no active slot, find the NEXT upcoming slot
     if (!activeSlot) {
         activeSlot = slots.find(s => {
             const [startStr] = s.timeRange.split('-');
@@ -404,18 +403,17 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
     const targetId = activeSlot?.id;
 
     if (targetId) {
-        // Small timeout to allow Framer Motion animations to start/layout to settle
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             const el = document.getElementById(targetId);
             if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 hasScrolledRef.current = true;
             }
-        }, 600);
+        }, 1500);
+        return () => clearTimeout(timer);
     }
   }, [slots, currentMinutes]);
 
-  // Auto-scroll to form when it opens
   useEffect(() => {
     if (modalMode !== 'closed' && formRef.current) {
         setTimeout(() => {
@@ -471,7 +469,12 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
   };
 
   return (
-    <div className="animate-fade-in-up space-y-6 sm:space-y-10 pb-10">
+    <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="space-y-6 sm:space-y-10 pb-10"
+    >
       {/* --- ISOLATED TRACKER --- */}
       <OrbitalDayTracker progress={progress} dayName={dayName} slots={slots} />
 
@@ -510,7 +513,6 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                 className="overflow-hidden relative z-10"
              >
                  <div className={`w-full bg-[#0B1120] border border-white/10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col mt-4 mb-6 ${THEME_CONFIG[formCategory].glow}`}>
-                     {/* Card Header & Title */}
                      <div className="p-6 sm:p-8 flex flex-col gap-6 relative z-10 bg-gradient-to-b from-white/5 to-transparent">
                          <div className="flex justify-between items-start">
                              <div className="w-full">
@@ -520,7 +522,6 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                                         {editingId ? 'Modify Protocol' : 'New Directive'}
                                     </span>
                                 </div>
-                                {/* Seamless Title Input */}
                                 <input 
                                     className="w-full bg-transparent border-none p-0 text-3xl sm:text-5xl font-black italic text-white placeholder:text-white/20 focus:outline-none focus:ring-0 uppercase tracking-tight leading-tight"
                                     placeholder="ENTER TITLE..."
@@ -534,10 +535,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                          </div>
                      </div>
 
-                     {/* Compact Body */}
                      <div className="px-6 sm:px-8 pb-6 sm:pb-8 space-y-8">
-                         
-                         {/* 1. Category Grid (Horizontal Strip) */}
                          <div>
                             <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest mb-3">Protocol Category</div>
                             <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 mask-linear-fade">
@@ -559,7 +557,6 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                             </div>
                          </div>
 
-                         {/* 2. Time Control Deck (Tabs + Liquid Slider) */}
                          <div className="bg-black/30 rounded-[2rem] border border-white/5 p-2">
                              <div className="flex p-1 bg-white/5 rounded-2xl mb-6">
                                 <button onClick={() => { setTimeTab('start'); playOrbitSound('click'); }} className={`flex-1 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${timeTab === 'start' ? 'bg-white text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Start Time</button>
@@ -595,7 +592,6 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                              </div>
                          </div>
 
-                         {/* 3. Action Button */}
                          <button 
                             onClick={handleSave} 
                             className={`w-full py-5 rounded-2xl font-black italic uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-95 group ${THEME_CONFIG[formCategory].accent} text-white`}
@@ -607,14 +603,12 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                          </button>
                      </div>
                      
-                     {/* Decorative Glow based on category */}
                      <div className={`absolute top-0 right-0 w-96 h-96 ${THEME_CONFIG[formCategory].accent} blur-[150px] opacity-20 pointer-events-none`} />
                  </div>
              </motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- SLOT CONTAINER --- */}
       <div className={`grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 ${slots.length === 0 ? 'block' : ''} ${modalMode !== 'closed' ? 'opacity-40 pointer-events-none filter blur-sm transition-all duration-500' : 'transition-all duration-500'}`}>
         {slots.length === 0 ? (
           <div className="py-24 text-center glass-panel rounded-[2.5rem] border-dashed border-white/10 col-span-2 flex flex-col items-center justify-center">
@@ -630,7 +624,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
                 key={slot.id} 
                 slot={slot} 
                 dayName={dayName} 
-                onAction={handleSlotAction}
+                onAction={handleSlotAction} 
                 onRemove={onRemoveSlot}
                 onEdit={openModal}
                 currentMinutes={currentMinutes}
@@ -638,6 +632,6 @@ export const DailyView: React.FC<DailyViewProps> = ({ dayName, slots, username, 
           ))
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
