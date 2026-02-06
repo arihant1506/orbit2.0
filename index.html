@@ -76,101 +76,6 @@
         }
       }
     </script>
-    <style>
-      :root {
-        color-scheme: dark;
-      }
-      
-      html {
-        -webkit-tap-highlight-color: transparent;
-        scroll-behavior: smooth;
-        background-color: #000000;
-        /* Prevent font scaling mess on mobile */
-        text-size-adjust: 100%; 
-      }
-
-      body {
-        background-color: #000000;
-        color: #e2e8f0;
-        overflow-x: hidden;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        text-rendering: optimizeLegibility;
-      }
-      
-      /* Cinematic Noise Overlay */
-      body::after {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
-        pointer-events: none;
-        z-index: 9999;
-        mix-blend-mode: overlay;
-      }
-
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-      /* Obsidian Glass Effect - High Gloss, Deep Dark */
-      .floating-glass {
-        background: rgba(10, 10, 12, 0.65);
-        backdrop-filter: blur(30px) saturate(160%);
-        -webkit-backdrop-filter: blur(30px) saturate(160%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-top: 1px solid rgba(255, 255, 255, 0.15);
-        border-left: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 
-          0 25px 50px -12px rgba(0, 0, 0, 0.8),
-          0 0 0 1px rgba(0,0,0,0.5),
-          inset 0 1px 1px rgba(255,255,255,0.1),
-          inset 0 0 20px rgba(0,0,0,0.5);
-      }
-
-      /* Liquid Metal Effect */
-      .liquid-glass {
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 100%);
-        backdrop-filter: blur(40px) brightness(1.2);
-        -webkit-backdrop-filter: blur(40px) brightness(1.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
-        box-shadow: 
-          0 20px 40px 0 rgba(0, 0, 0, 0.6), 
-          inset 0 0 30px rgba(0,0,0,0.5);
-      }
-      
-      .glass-panel {
-        background: rgba(20, 20, 25, 0.4);
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
-      }
-
-      .float-delay-1 { animation-delay: 0.5s; }
-      .float-delay-2 { animation-delay: 1.0s; }
-      .float-delay-3 { animation-delay: 1.5s; }
-      
-      ::selection {
-        background-color: rgba(6, 182, 212, 0.3);
-        color: white;
-      }
-      
-      /* Mobile optimization for inputs to prevent zoom */
-      @media screen and (max-width: 768px) {
-        input, select, textarea {
-          font-size: 16px !important;
-        }
-      }
-    </style>
   <script type="importmap">
 {
   "imports": {
@@ -189,7 +94,7 @@
     "cors": "https://esm.sh/cors@^2.8.6",
     "node-cron": "https://esm.sh/node-cron@^4.2.1",
     "web-push": "https://esm.sh/web-push@^3.6.7",
-    "@google/genai": "https://esm.sh/@google/genai@^1.39.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
   }
 }
 </script>
