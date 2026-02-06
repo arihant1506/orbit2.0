@@ -718,7 +718,7 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                     className="w-full max-w-md bg-[#050505] border border-white/10 rounded-[2.5rem] relative overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
                 >
                     {/* Dynamic Header Background (Fixed) */}
-                    <div className={`absolute top-0 left-0 w-full h-40 bg-gradient-to-b ${TYPE_THEMES[inspectingNode.type].bgGradient} opacity-20 pointer-events-none`} />
+                    <div className={`absolute top-0 left-0 w-full h-40 bg-gradient-to-b ${TYPE_THEMES[inspectingNode.type as ClassType].bgGradient} opacity-20 pointer-events-none`} />
                     <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none" />
 
                     {/* Scrollable Content */}
@@ -726,9 +726,9 @@ export const AcademicView: React.FC<AcademicViewProps> = ({ schedule, onAddClass
                         
                         {/* Top Bar */}
                         <div className="flex justify-between items-start sticky top-0 z-20">
-                            <div className={`px-3 py-1 rounded-full border ${TYPE_THEMES[inspectingNode.type].primary} bg-black/40 backdrop-blur-sm border-opacity-30 text-[9px] font-black uppercase tracking-widest text-white flex items-center gap-2`}>
-                                {React.createElement(TYPE_THEMES[inspectingNode.type].icon, { className: "w-3 h-3" })}
-                                {TYPE_THEMES[inspectingNode.type].label}
+                            <div className={`px-3 py-1 rounded-full border ${TYPE_THEMES[inspectingNode.type as ClassType].primary} bg-black/40 backdrop-blur-sm border-opacity-30 text-[9px] font-black uppercase tracking-widest text-white flex items-center gap-2`}>
+                                {React.createElement(TYPE_THEMES[inspectingNode.type as ClassType].icon, { className: "w-3 h-3" })}
+                                {TYPE_THEMES[inspectingNode.type as ClassType].label}
                             </div>
                             <button onClick={() => setInspectingNode(null)} className="p-2 -mr-2 -mt-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors bg-black/50 backdrop-blur-md border border-white/10">
                                 <X className="w-5 h-5" />
